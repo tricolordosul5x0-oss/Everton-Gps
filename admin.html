@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Everton GPS - Painel Admin</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { --primary: #00bcd4; --bg: #1a1a1a; --card: #2d2d2d; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg); color: white; }
+        
+        .container { display: flex; flex-direction: column; height: 100vh; }
+        
+        header { background: var(--card); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary); }
+        .logo { font-size: 1.4em; font-weight: bold; margin: 0; display: flex; align-items: center; gap: 10px; }
+        
+        #map { flex-grow: 1; width: 100%; }
+        
+        .painel-inferior { background: var(--card); padding: 15px; display: grid; grid-template-columns: 1fr 2fr; gap: 20px; max-height: 250px; overflow-y: auto; }
+        
+        .card-status { background: #222; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary); }
+        .card-status h3 { margin-top: 0; color: var(--primary); font-size: 1em; }
+        .info-linha { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em; }
+        .info-linha span:last-child { font-weight: bold; }
+        
+        .tabela-container { background: #222; border-radius: 8px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left; }
+        th, td { padding: 10px; border-bottom: 1px solid #333; }
+        th { background: #151515; color: var(--primary); }
+        
+        .badge { background: #4caf50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; }
+        .badge.offline { background: #f44336; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div class="logo">🖥️ Everton GPS - Painel Admin</div>
+            <div>
+                <select id="seletorVeiculo" style="padding: 8px; background: #222; color: white; border: 1px solid var(--primary); border-radius: 4px;">
+                    <option value="VEICULO-01">Veículo 01 (Padrão)</option>
+                </select>
+            </div>
+        </header>
+
+        <div id="map"></div>
+
+        <div class="painel-inferior">
+            <div class="card-status">
+                <h3>Status do Telemetria</h3>
+                <div class="info-linha"><span>Veículo:</span> <span id="info-id">-</span></div>
+                <div class="info-linha"><span>Conexão:</span> <span id="info-conexao" class="badge offline">Offline</span></div>
+                <div class="info-linha"><span>Última Atualização:</span> <span id="info-hora">-</span></div>
+                <div class="info-linha"><span>Velocidade:</span> <span id="info-vel">0 km/h</span></div>
+                <div class="info-linha"><span>Precisão GPS:</span> <span id="info-precisao">-</span></div>
+            </div>
+
+            <div class="tabela-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Hora</th>
+                            <th>Latitude</th>
+                            <th>Longitude</th>
+                            <th>Precisão</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-admin-corpo">
+                        <tr><td colspan="4" style="text-align:center; color:#777;">Aguardando dados do veículo...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // ⚠️ USE AS MESMAS CONFIGURAÇÕES DO FIREBASE QUE VOCÊ COLOCOU NO CARRO
+        const firebaseConfig = {
+            apiKey: "SEU_API_KEY",
+            authDomain: "SEU_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://SEU_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "SEU_PROJECT_ID",
+            storageBucket: "SEU_PROJECT_ID.appspot.com",
+            messagingSenderId: "SEU_SENDER_ID",
+            appId: "SEU_APP_ID"
+        };
+
+        // Inicializa o Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const L = window.L;
+        let map, rotaLinha, marcadorVeiculo;
+        let primeiraCarga = true;
+
+        // Inicializa o Mapa Admin
+        function initMap() {
+            map = L.map('map').setView([-23.5505, -46.6333], 13); // Centralizado inicialmente em SP
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            // Linha que vai desenhar o histórico do trajeto
+            rotaLinha = L.polyline([], {color: '#00bcd4', weight: 4, opacity: 0.8}).addTo(map);
+        }
+
+        // Conecta ao Firebase e monitora o veículo selecionado
+        function monitorarVeiculo(idVeiculo) {
+            document.getElementById('info-id').innerText = idVeiculo;
+
+            // 1. ESCUTA A POSIÇÃO ATUAL (Tempo Real)
+            const atualRef = ref(db, `veiculos/${idVeiculo}/atual`);
+            onValue(atualRef, (snapshot) => {
+                const dados = snapshot.val();
+                if (dados) {
+                    const pos = [dados.lat, dados.lon];
+
+                    // Atualiza o marcador do veículo no mapa
+                    if (!marcadorVeiculo) {
+                        marcadorVeiculo = L.marker(pos).addTo(map);
+                    }
+                    marcadorVeiculo.setLatLng(pos);
+                    marcadorVeiculo.bindPopup(`<b>${idVeiculo}</b><br>Velocidade: ${dados.velocidade || 0} km/h`).openPopup();
+
+                    // Se for a primeira vez que recebe os dados, centraliza o mapa no carro
+                    if (primeiraCarga) {
+                        map.setView(pos, 16);
+                        primeiraCarga = false;
+                    }
+
+                    // Atualiza os cards de status na tela
+                    document.getElementById('info-conexao').innerText = "Online";
+                    document.getElementById('info-conexao').className = "badge";
+                    document.getElementById('info-hora').innerText = dados.hora;
+                    document.getElementById('info-vel').innerText = (dados.velocidade || 0) + " km/h";
+                    document.getElementById('info-precisao').innerText = dados.acuracia + "m";
+                }
+            });
+
+            // 2. ESCUTA O HISTÓRICO (Para desenhar o rastro e preencher a tabela)
+            // Limitamos aos últimos 30 pontos para o navegador não travar se o histórico for gigante
+            const historicoRef = query(ref(db, `veiculos/${idVeiculo}/historico`), limitToLast(30));
+            onValue(historicoRef, (snapshot) => {
+                const dados = snapshot.val();
+                if (dados) {
+                    const listaPontos = Object.values(dados);
+                    
+                    // Ordena por timestamp para garantir a ordem do trajeto
+                    listaPontos.sort((a, b) => a.timestamp - b.timestamp);
+
+                    // Atualiza a linha do mapa (trajeto)
+                    const coordenadasArr = listaPontos.map(p => [p.lat, p.lon]);
+                    rotaLinha.setLatLngs(coordenadasArr);
+
+                    // Atualiza a tabela (mostrando os mais recentes primeiro)
+                    const tabelaCorpo = document.getElementById('tabela-admin-corpo');
+                    tabelaCorpo.innerHTML = listaPontos.slice().reverse().map(p => `
+                        <tr>
+                            <td>${p.hora}</td>
+                            <td>${p.lat.toFixed(6)}</td>
+                            <td>${p.lon.toFixed(6)}</td>
+                            <td>${p.acuracia}m</td>
+                        </tr>
+                    `).join('');
+                }
+            });
+        }
+
+        // Inicialização do sistema ao carregar a página
+        window.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            
+            const seletor = document.getElementById('seletorVeiculo');
+            monitorarVeiculo(seletor.value);
+
+            // Caso mude de veículo no painel futuramente
+            seletor.addEventListener('change', (e) => {
+                primeiraCarga = true;
+                if (marcadorVeiculo) map.removeLayer(marcadorVeiculo);
+                marcadorVeiculo = null;
+                monitorarVeiculo(e.target.value);
+            });
+        });
+    </script>
+</body>
+</html>
