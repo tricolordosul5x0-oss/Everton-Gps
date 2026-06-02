@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Everton GPS - Teste do Veículo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { --primary: #00ff00; --bg: #121212; --card: #1e1e1e; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg); color: white; padding: 10px; }
+        header { background: var(--card); padding: 15px; text-align: center; border-bottom: 2px solid var(--primary); margin-bottom: 10px; }
+        #map { height: 300px; width: 100%; border-radius: 8px; }
+        .controls { padding: 15px 0; display: flex; flex-direction: column; gap: 10px; }
+        .status-box { background: #252525; padding: 12px; border-radius: 5px; border: 1px solid #333; font-size: 0.9em; }
+        .error-log { background: #3a1a1a; border: 1px solid #ff4444; color: #ff8888; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 0.85em; margin-top: 10px; display: none; }
+        input { padding: 12px; border-radius: 5px; border: 1px solid #333; background: #252525; color: white; font-size: 1em; }
+        button { padding: 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; background: var(--primary); color: black; font-size: 1em; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h2 style="margin:0">🛰️ Everton GPS - Transmissor</h2>
+    </header>
+
+    <div id="map"></div>
+
+    <div class="controls">
+        <input type="text" id="veiculoID" placeholder="Identificação do Veículo" value="VEICULO-01">
+        <button id="btnForçar" onclick="window.forcarEnvioTeste()">FORÇAR ENVIO DE TESTE (Sem GPS)</button>
+        
+        <div class="status-box">
+            <strong>Status do Sistema:</strong>
+            <div id="statusText">Iniciando scripts...</div>
+        </div>
+
+        <div id="errorLog" class="error-log"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // ⚠️ COLE AQUI AS SUAS CREDENCIAIS EXATAS DO FIREBASE
+        // ✅ SUAS CREDENCIAIS REAIS DO FIREBASE (Copiadas da sua foto)
+const firebaseConfig = {
+    apiKey: "AIzaSyDwKIS8wL3D7OuaysVFWz3D7Oua", // Deixei igual ao começo da sua foto, confira se bate com o seu código completo
+    authDomain: "everton-gps.firebaseapp.com",
+    databaseURL: "https://everton-gps-default-rtdb.firebaseio.com", // Obrigatório para o Realtime Database funcionar
+    projectId: "everton-gps",
+    storageBucket: "everton-gps.appspot.com",
+    messagingSenderId: "688936933095",
+    appId: "1:688936933095:web:5508a8e1008f1b4020a1db", // Substitua pelo seu appId completo caso o final seja diferente
+    measurementId: "G-X14EWTZN18"
+};
+
+
+        // Elementos da Tela
+        const statusText = document.getElementById('statusText');
+        const errorLog = document.getElementById('errorLog');
+
+        function mostrarErro(origem, mensagem) {
+            errorLog.style.display = "block";
+            errorLog.innerHTML += `[${origem}] ${mensagem}<br>`;
+            console.error(`[${origem}]`, mensagem);
+        }
+
+        // Inicialização Segura do Firebase
+        let db;
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getDatabase(app);
+            statusText.innerText = "Firebase conectado com sucesso. Tentando ler GPS...";
+        } catch (e) {
+            mostrarErro("Firebase Init", e.message);
+            statusText.innerText = "Erro ao inicializar o Firebase.";
+        }
+
+        // Configuração do Mapa Local
+        let map, rota, marcador;
+        function initMap() {
+            try {
+                map = L.map('map').setView([-23.5505, -46.6333], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                rota = L.polyline([], {color: '#00ff00', weight: 5}).addTo(map);
+                marcador = L.marker([-23.5505, -46.6333]).addTo(map);
+            } catch (e) {
+                mostrarErro("Leaflet Map", e.message);
+            }
+        }
+        initMap();
+
+        // Função de envio para o Firebase (Centralizada para evitar repetição de código)
+        function enviarDadosParaFirebase(dados) {
+            const vID = document.getElementById('veiculoID').value || "VEICULO-PADRAO";
+            
+            statusText.innerText = "Enviando coordenadas para o Firebase...";
+            
+            // Grava a posição atual
+            set(ref(db, `veiculos/${vID}/atual`), dados)
+                .then(() => {
+                    statusText.innerText = `📡 Transmitindo com sucesso! Última: ${dados.hora}`;
+                    // Adiciona ao histórico para o rastro do admin
+                    push(ref(db, `veiculos/${vID}/historico`), dados);
+                    
+                    // Atualiza mapa local
+                    const pos = [dados.lat, dados.lon];
+                    marcador.setLatLng(pos);
+                    rota.addLatLng(pos);
+                    map.panTo(pos);
+                })
+                .catch((error) => {
+                    mostrarErro("Firebase Database", "O banco recusou a gravação. Verifique as REGRAS. Detalhes: " + error.message);
+                    statusText.innerText = "Erro de gravação no banco de dados.";
+                });
+        }
+
+        // Ativação Automática do GPS Real
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(
+                (pos) => {
+                    const dadosGPS = {
+                        lat: pos.coords.latitude,
+                        lon: pos.coords.longitude,
+                        hora: new Date().toLocaleTimeString(),
+                        timestamp: new Date().getTime(),
+                        acuracia: pos.coords.accuracy.toFixed(1),
+                        velocidade: pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0
+                    };
+                    enviarDadosParaFirebase(dadosGPS);
+                },
+                (err) => {
+                    let motivos = ["Desconhecido", "Permissão negada (Você bloqueou o acesso ao GPS)", "Posição indisponível", "Tempo limite esgotado"];
+                    mostrarErro("GPS Real", `Erro código ${err.code}: ${motivos[err.code] || err.message}`);
+                    statusText.innerText = "O GPS falhou. Use o botão de simulação abaixo para testar o Firebase.";
+                },
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+            );
+        } else {
+            mostrarErro("GPS Hardware", "Este navegador/aparelho não possui suporte a Geolocalização.");
+        }
+
+        // FUNÇÃO DE DIAGNÓSTICO (Botão na tela): Ignora o GPS e tenta enviar uma coordenada falsa
+        window.forcarEnvioTeste = function() {
+            if (!db) {
+                alert("O Firebase não foi inicializado corretamente. Olhe o log de erros vermelho.");
+                return;
+            }
+            // Coordenada fictícia (Avenida Paulista, SP) apenas para testar a comunicação com o Firebase
+            const coordenadaFalsa = {
+                lat: -23.5616 + (Math.random() * 0.002), 
+                lon: -46.6560 + (Math.random() * 0.002),
+                hora: new Date().toLocaleTimeString(),
+                timestamp: new Date().getTime(),
+                acuracia: "1.0",
+                velocidade: "45"
+            };
+            enviarDadosParaFirebase(coordenadaFalsa);
+        };
+    </script>
+</body>
+</html>
