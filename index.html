@@ -42,6 +42,36 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        async function buscarEndereco(lat, lon) {
+
+    try {
+
+        const resposta = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+        );
+
+        const dados = await resposta.json();
+
+        return {
+            rua: dados.address.road || "Rua desconhecida",
+            bairro: dados.address.suburb || dados.address.neighbourhood || "",
+            cidade: dados.address.city || dados.address.town || dados.address.village || "",
+            estado: dados.address.state || "",
+            completo: dados.display_name || "Endereço não encontrado"
+        };
+
+    } catch (erro) {
+
+        return {
+            rua: "-",
+            bairro: "-",
+            cidade: "-",
+            estado: "-",
+            completo: "Erro ao localizar"
+        };
+
+    }
+}
 
         // ⚠️ COLE AQUI AS SUAS CREDENCIAIS EXATAS DO FIREBASE
         // ✅ SUAS CREDENCIAIS REAIS DO FIREBASE (Copiadas da sua foto)
@@ -93,29 +123,63 @@ const firebaseConfig = {
         initMap();
 
         // Função de envio para o Firebase (Centralizada para evitar repetição de código)
-        function enviarDadosParaFirebase(dados) {
-            const vID = document.getElementById('veiculoID').value || "VEICULO-PADRAO";
-            
-            statusText.innerText = "Enviando coordenadas para o Firebase...";
-            
-            // Grava a posição atual
-            set(ref(db, `veiculos/${vID}/atual`), dados)
-                .then(() => {
-                    statusText.innerText = `📡 Transmitindo com sucesso! Última: ${dados.hora}`;
-                    // Adiciona ao histórico para o rastro do admin
-                    push(ref(db, `veiculos/${vID}/historico`), dados);
-                    
-                    // Atualiza mapa local
-                    const pos = [dados.lat, dados.lon];
-                    marcador.setLatLng(pos);
-                    rota.addLatLng(pos);
-                    map.panTo(pos);
-                })
-                .catch((error) => {
-                    mostrarErro("Firebase Database", "O banco recusou a gravação. Verifique as REGRAS. Detalhes: " + error.message);
-                    statusText.innerText = "Erro de gravação no banco de dados.";
-                });
-        }
+        async function enviarDadosParaFirebase(dados) {
+
+    const vID = document.getElementById('veiculoID').value || "VEICULO-PADRAO";
+
+    statusText.innerText = "Buscando endereço...";
+
+    // Busca rua/cidade pelo GPS
+    const endereco = await buscarEndereco(dados.lat, dados.lon);
+
+    // adiciona endereço nos dados
+    dados.endereco = endereco;
+
+    statusText.innerText = "Enviando coordenadas para o Firebase...";
+
+    // Grava posição atual
+    set(ref(db, `veiculos/${vID}/atual`), dados)
+
+        .then(() => {
+
+            statusText.innerHTML = `
+                📡 Transmitindo com sucesso!<br>
+                📍 ${endereco.rua}<br>
+                🏙️ ${endereco.cidade}
+            `;
+
+            // salva histórico
+            push(ref(db, `veiculos/${vID}/historico`), dados);
+
+            // atualiza mapa
+            const pos = [dados.lat, dados.lon];
+
+            marcador.setLatLng(pos);
+
+            marcador.bindPopup(`
+                <b>${vID}</b><br>
+                🚗 ${dados.velocidade} km/h<br>
+                📍 ${endereco.rua}<br>
+                🏙️ ${endereco.cidade}
+            `);
+
+            rota.addLatLng(pos);
+
+            map.panTo(pos);
+
+        })
+
+        .catch((error) => {
+
+            mostrarErro(
+                "Firebase Database",
+                "Erro ao gravar: " + error.message
+            );
+
+            statusText.innerText = "Erro de gravação.";
+
+        });
+}
 
         // Ativação Automática do GPS Real
         if (navigator.geolocation) {
