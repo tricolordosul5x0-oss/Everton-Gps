@@ -1,254 +1,252 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Everton GPS - Painel Admin</title>
 
-    <link rel="stylesheet"
-          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
 
-    <style>
+<title>Everton GPS - Painel Admin</title>
 
-        :root{
-            --primary:#00bcd4;
-            --bg:#1a1a1a;
-            --card:#2d2d2d;
-        }
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
-        *{
-            box-sizing:border-box;
-        }
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
 
-        body{
-            margin:0;
-            background:var(--bg);
-            color:white;
-            overflow:hidden;
-            font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
-        }
+<style>
 
-        .container{
-            display:flex;
-            flex-direction:column;
-            height:100vh;
-        }
+:root{
+    --primary:#00bcd4;
+    --bg:#1a1a1a;
+    --card:#2d2d2d;
+}
 
-        header{
-            background:var(--card);
-            padding:15px 20px;
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            border-bottom:2px solid var(--primary);
-            z-index:1000;
-        }
+*{
+    box-sizing:border-box;
+}
 
-        .logo{
-            font-size:1.2em;
-            font-weight:bold;
-            display:flex;
-            align-items:center;
-            gap:10px;
-        }
+body{
+    margin:0;
+    background:var(--bg);
+    color:white;
+    overflow:hidden;
+    font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+}
 
-        #map{
-            flex-grow:1;
-            width:100%;
-            background:#222;
-        }
+.container{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+}
 
-        .painel-inferior{
-            background:var(--card);
-            padding:15px;
-            display:grid;
-            grid-template-columns:1fr 1.5fr;
-            gap:15px;
-            height:280px;
-            overflow-y:auto;
-            border-top:1px solid #444;
-        }
+header{
+    background:var(--card);
+    padding:15px 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    border-bottom:2px solid var(--primary);
+    z-index:1000;
+}
 
-        .card-status{
-            background:#222;
-            padding:15px;
-            border-radius:8px;
-            border-left:4px solid var(--primary);
-        }
+.logo{
+    font-size:1.2em;
+    font-weight:bold;
+}
 
-        .card-status h3{
-            margin-top:0;
-            color:var(--primary);
-        }
+#map{
+    flex-grow:1;
+    width:100%;
+    background:#222;
+}
 
-        .info-linha{
-            display:flex;
-            justify-content:space-between;
-            margin-bottom:8px;
-            font-size:.85em;
-            border-bottom:1px solid #333;
-            padding-bottom:4px;
-        }
+.painel-inferior{
+    background:var(--card);
+    padding:15px;
+    display:grid;
+    grid-template-columns:1fr 1.5fr;
+    gap:15px;
+    height:280px;
+    overflow-y:auto;
+    border-top:1px solid #444;
+}
 
-        .info-linha span:last-child{
-            font-weight:bold;
-        }
+.card-status{
+    background:#222;
+    padding:15px;
+    border-radius:8px;
+    border-left:4px solid var(--primary);
+}
 
-        .tabela-container{
-            background:#222;
-            border-radius:8px;
-            overflow-x:auto;
-        }
+.info-linha{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:8px;
+    font-size:.85em;
+    border-bottom:1px solid #333;
+    padding-bottom:4px;
+}
 
-        table{
-            width:100%;
-            border-collapse:collapse;
-            min-width:400px;
-        }
+.tabela-container{
+    background:#222;
+    border-radius:8px;
+    overflow-x:auto;
+}
 
-        th,td{
-            padding:10px;
-            border-bottom:1px solid #333;
-            font-size:.85em;
-            text-align:left;
-        }
+table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:400px;
+}
 
-        th{
-            background:#151515;
-            color:var(--primary);
-            position:sticky;
-            top:0;
-        }
+th,td{
+    padding:10px;
+    border-bottom:1px solid #333;
+    font-size:.85em;
+    text-align:left;
+}
 
-        .badge{
-            background:#4caf50;
-            color:white;
-            padding:2px 8px;
-            border-radius:12px;
-            font-size:.8em;
-        }
+th{
+    background:#151515;
+    color:var(--primary);
+    position:sticky;
+    top:0;
+}
 
-        .badge.offline{
-            background:#f44336;
-        }
+.badge{
+    background:#4caf50;
+    color:white;
+    padding:2px 8px;
+    border-radius:12px;
+    font-size:.8em;
+}
 
-        @media(max-width:600px){
+.badge.offline{
+    background:#f44336;
+}
 
-            .painel-inferior{
-                grid-template-columns:1fr;
-                height:350px;
-            }
+.leaflet-routing-container{
+    display:none !important;
+}
 
-            .logo{
-                font-size:1em;
-            }
-        }
+@media(max-width:600px){
 
-    </style>
+    .painel-inferior{
+        grid-template-columns:1fr;
+        height:350px;
+    }
+}
+
+</style>
+
 </head>
 
 <body>
 
 <div class="container">
 
-    <header>
+<header>
 
-        <div class="logo">
-            🖥️ Everton GPS - Admin
+    <div class="logo">
+        🖥️ Everton GPS - Admin
+    </div>
+
+    <select id="seletorVeiculo"
+        style="
+            padding:8px;
+            background:#222;
+            color:white;
+            border:1px solid var(--primary);
+            border-radius:4px;
+        ">
+
+        <option value="VEICULO-01">
+            Veículo 01
+        </option>
+
+    </select>
+
+</header>
+
+<div id="map"></div>
+
+<div class="painel-inferior">
+
+    <div class="card-status">
+
+        <h3>Status da Telemetria</h3>
+
+        <div class="info-linha">
+            <span>Veículo:</span>
+            <span id="info-id">VEICULO-01</span>
         </div>
 
-        <select id="seletorVeiculo"
-                style="
-                    padding:8px;
-                    background:#222;
-                    color:white;
-                    border:1px solid var(--primary);
-                    border-radius:4px;
-                ">
-
-            <option value="VEICULO-01">
-                Veículo 01
-            </option>
-
-        </select>
-
-    </header>
-
-    <div id="map"></div>
-
-    <div class="painel-inferior">
-
-        <div class="card-status">
-
-            <h3>Status da Telemetria</h3>
-
-            <div class="info-linha">
-                <span>Veículo:</span>
-                <span id="info-id">VEICULO-01</span>
-            </div>
-
-            <div class="info-linha">
-                <span>Conexão:</span>
-                <span id="info-conexao" class="badge offline">
-                    Offline
-                </span>
-            </div>
-
-            <div class="info-linha">
-                <span>Última Atualização:</span>
-                <span id="info-hora">-</span>
-            </div>
-
-            <div class="info-linha">
-                <span>Velocidade:</span>
-                <span id="info-vel"
-                      style="color:#00bcd4;">
-                    0 km/h
-                </span>
-            </div>
-
-            <div class="info-linha">
-                <span>Precisão GPS:</span>
-                <span id="info-precisao">-</span>
-            </div>
-
+        <div class="info-linha">
+            <span>Conexão:</span>
+            <span id="info-conexao"
+                  class="badge offline">
+                Offline
+            </span>
         </div>
 
-        <div class="tabela-container">
-
-            <table>
-
-                <thead>
-                    <tr>
-                        <th>Horário</th>
-                        <th>Local / Cidade</th>
-                        <th>Velocidade</th>
-                    </tr>
-                </thead>
-
-                <tbody id="tabela-admin-corpo">
-
-                    <tr>
-                        <td colspan="3"
-                            style="
-                                text-align:center;
-                                color:#777;
-                            ">
-                            Aguardando dados...
-                        </td>
-                    </tr>
-
-                </tbody>
-
-            </table>
-
+        <div class="info-linha">
+            <span>Última Atualização:</span>
+            <span id="info-hora">-</span>
         </div>
+
+        <div class="info-linha">
+            <span>Velocidade:</span>
+            <span id="info-vel"
+                  style="color:#00bcd4;">
+                0 km/h
+            </span>
+        </div>
+
+        <div class="info-linha">
+            <span>Precisão GPS:</span>
+            <span id="info-precisao">-</span>
+        </div>
+
+    </div>
+
+    <div class="tabela-container">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Horário</th>
+                    <th>Local / Cidade</th>
+                    <th>Velocidade</th>
+                </tr>
+            </thead>
+
+            <tbody id="tabela-admin-corpo">
+
+                <tr>
+                    <td colspan="3"
+                        style="
+                            text-align:center;
+                            color:#777;
+                        ">
+                        Aguardando dados...
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
 
     </div>
 
 </div>
 
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 
 <script type="module">
 
@@ -266,35 +264,37 @@ from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 const firebaseConfig = {
 
-    apiKey: "SUA_API_KEY",
+    apiKey:"SUA_API_KEY",
 
-    authDomain: "everton-gps.firebaseapp.com",
+    authDomain:"everton-gps.firebaseapp.com",
 
     databaseURL:
-        "https://everton-gps-default-rtdb.firebaseio.com",
+    "https://everton-gps-default-rtdb.firebaseio.com",
 
-    projectId: "everton-gps",
+    projectId:"everton-gps",
 
-    storageBucket: "everton-gps.appspot.com",
+    storageBucket:"everton-gps.appspot.com",
 
-    messagingSenderId: "688936933095",
+    messagingSenderId:"688936933095",
 
     appId:
-        "1:688936933095:web:5508a8e1008f1b4020a1db"
+    "1:688936933095:web:5508a8e1008f1b4020a1db"
 };
 
 const app = initializeApp(firebaseConfig);
+
 const db = getDatabase(app);
 
 let map;
-let rotaLinha;
 let marcadorVeiculo;
+let controleRota;
+
 let primeiraCarga = true;
 
 function initMap(){
 
     map = L.map('map').setView(
-        [-23.5505, -46.6333],
+        [-23.5505,-46.6333],
         13
     );
 
@@ -304,58 +304,52 @@ function initMap(){
             attribution:'© OpenStreetMap'
         }
     ).addTo(map);
-
-    rotaLinha = L.polyline([],{
-        color:'#00bcd4',
-        weight:5,
-        opacity:0.9
-    }).addTo(map);
 }
 
-async function desenharRotaReal(listaPontos){
+function desenharRotaReal(listaPontos){
 
-    if(listaPontos.length < 2) return;
+    if(listaPontos.length < 2)
+        return;
 
-    try{
+    // remove rota anterior
+    if(controleRota){
 
-        const coordenadas = listaPontos
-            .slice()
-            .reverse()
-            .map(p => `${p.lon},${p.lat}`)
-            .join(';');
-
-        const url =
-            `https://router.project-osrm.org/route/v1/driving/${coordenadas}?overview=full&geometries=geojson`;
-
-        const resposta = await fetch(url);
-
-        const dados = await resposta.json();
-
-        if(!dados.routes || !dados.routes.length)
-            return;
-
-        const rota =
-            dados.routes[0].geometry.coordinates;
-
-        const latLngs = rota.map(
-            p => [p[1], p[0]]
-        );
-
-        rotaLinha.setLatLngs(latLngs);
-
-    }catch(erro){
-
-        console.error(
-            "Erro ao desenhar rota:",
-            erro
-        );
-
-        rotaLinha.setLatLngs(
-            listaPontos.map(
-                p => [p.lat, p.lon]
-            ).reverse()
-        );
+        map.removeControl(controleRota);
     }
+
+    // ordena antigo -> novo
+    const waypoints = listaPontos
+        .slice()
+        .reverse()
+        .map(p =>
+            L.latLng(p.lat,p.lon)
+        );
+
+    controleRota = L.Routing.control({
+
+        waypoints:waypoints,
+
+        routeWhileDragging:false,
+
+        addWaypoints:false,
+
+        draggableWaypoints:false,
+
+        fitSelectedRoutes:false,
+
+        show:false,
+
+        lineOptions:{
+            styles:[{
+                color:'#00bcd4',
+                opacity:0.9,
+                weight:5
+            }]
+        },
+
+        createMarker:() => null
+
+    }).addTo(map);
 }
 
 function monitorarVeiculo(idVeiculo){
@@ -374,7 +368,10 @@ function monitorarVeiculo(idVeiculo){
 
         if(!dados) return;
 
-        const pos = [dados.lat, dados.lon];
+        const pos = [
+            dados.lat,
+            dados.lon
+        ];
 
         const vel =
             dados.velocidade ??
@@ -384,11 +381,13 @@ function monitorarVeiculo(idVeiculo){
         if(!marcadorVeiculo){
 
             marcadorVeiculo =
-                L.marker(pos).addTo(map);
+                L.marker(pos)
+                .addTo(map);
 
         }else{
 
-            marcadorVeiculo.setLatLng(pos);
+            marcadorVeiculo
+                .setLatLng(pos);
         }
 
         marcadorVeiculo.bindPopup(`
@@ -399,38 +398,49 @@ function monitorarVeiculo(idVeiculo){
         if(primeiraCarga){
 
             map.setView(pos,16);
+
             primeiraCarga = false;
         }
 
-        document.getElementById('info-conexao')
-            .innerText = "Online";
+        document.getElementById(
+            'info-conexao'
+        ).innerText = "Online";
 
-        document.getElementById('info-conexao')
-            .className = "badge";
+        document.getElementById(
+            'info-conexao'
+        ).className = "badge";
 
-        document.getElementById('info-hora')
-            .innerText = dados.hora || "-";
+        document.getElementById(
+            'info-hora'
+        ).innerText =
+            dados.hora || "-";
 
-        document.getElementById('info-vel')
-            .innerText = vel + " km/h";
+        document.getElementById(
+            'info-vel'
+        ).innerText =
+            vel + " km/h";
 
-        document.getElementById('info-precisao')
-            .innerText =
-                (dados.acuracia ||
-                 dados.accuracy ||
-                 0) + "m";
+        document.getElementById(
+            'info-precisao'
+        ).innerText =
+            (
+                dados.acuracia ||
+                dados.accuracy ||
+                0
+            ) + "m";
     });
 
     const historicoRef = query(
+
         ref(
             db,
             `veiculos/${idVeiculo}/historico`
         ),
+
         limitToLast(10)
     );
 
-    onValue(historicoRef,
-        async(snapshot)=>{
+    onValue(historicoRef,(snapshot)=>{
 
         const dados = snapshot.val();
 
@@ -444,8 +454,10 @@ function monitorarVeiculo(idVeiculo){
                 b.timestamp - a.timestamp
         );
 
-        await desenharRotaReal(listaPontos);
+        // rota pelas ruas
+        desenharRotaReal(listaPontos);
 
+        // tabela
         const tabela =
             document.getElementById(
                 'tabela-admin-corpo'
@@ -509,7 +521,9 @@ window.addEventListener(
             'seletorVeiculo'
         );
 
-    monitorarVeiculo(seletor.value);
+    monitorarVeiculo(
+        seletor.value
+    );
 
     seletor.addEventListener(
         'change',
@@ -517,14 +531,22 @@ window.addEventListener(
 
         primeiraCarga = true;
 
-        if(marcadorVeiculo)
+        if(marcadorVeiculo){
+
             map.removeLayer(
                 marcadorVeiculo
             );
+        }
+
+        if(controleRota){
+
+            map.removeControl(
+                controleRota
+            );
+        }
 
         marcadorVeiculo = null;
-
-        rotaLinha.setLatLngs([]);
+        controleRota = null;
 
         monitorarVeiculo(
             e.target.value
