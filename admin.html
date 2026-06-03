@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
 
 <meta charset="UTF-8">
+
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0">
 
@@ -47,7 +49,6 @@ header{
     justify-content:space-between;
     align-items:center;
     border-bottom:2px solid var(--primary);
-    z-index:1000;
 }
 
 .logo{
@@ -58,7 +59,6 @@ header{
 #map{
     flex-grow:1;
     width:100%;
-    background:#222;
 }
 
 .painel-inferior{
@@ -69,7 +69,6 @@ header{
     gap:15px;
     height:280px;
     overflow-y:auto;
-    border-top:1px solid #444;
 }
 
 .card-status{
@@ -83,35 +82,9 @@ header{
     display:flex;
     justify-content:space-between;
     margin-bottom:8px;
-    font-size:.85em;
     border-bottom:1px solid #333;
     padding-bottom:4px;
-}
-
-.tabela-container{
-    background:#222;
-    border-radius:8px;
-    overflow-x:auto;
-}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-    min-width:400px;
-}
-
-th,td{
-    padding:10px;
-    border-bottom:1px solid #333;
     font-size:.85em;
-    text-align:left;
-}
-
-th{
-    background:#151515;
-    color:var(--primary);
-    position:sticky;
-    top:0;
 }
 
 .badge{
@@ -124,6 +97,31 @@ th{
 
 .badge.offline{
     background:#f44336;
+}
+
+.tabela-container{
+    background:#222;
+    border-radius:8px;
+    overflow-x:auto;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th,td{
+    padding:10px;
+    border-bottom:1px solid #333;
+    text-align:left;
+    font-size:.85em;
+}
+
+th{
+    background:#151515;
+    color:var(--primary);
+    position:sticky;
+    top:0;
 }
 
 .leaflet-routing-container{
@@ -215,11 +213,13 @@ th{
         <table>
 
             <thead>
+
                 <tr>
                     <th>Horário</th>
-                    <th>Local / Cidade</th>
+                    <th>Últimos Lugares</th>
                     <th>Velocidade</th>
                 </tr>
+
             </thead>
 
             <tbody id="tabela-admin-corpo">
@@ -288,7 +288,6 @@ const db = getDatabase(app);
 let map;
 let marcadorVeiculo;
 let controleRota;
-
 let primeiraCarga = true;
 
 function initMap(){
@@ -311,13 +310,11 @@ function desenharRotaReal(listaPontos){
     if(listaPontos.length < 2)
         return;
 
-    // remove rota anterior
     if(controleRota){
 
         map.removeControl(controleRota);
     }
 
-    // ordena antigo -> novo
     const waypoints = listaPontos
         .slice()
         .reverse()
@@ -390,11 +387,6 @@ function monitorarVeiculo(idVeiculo){
                 .setLatLng(pos);
         }
 
-        marcadorVeiculo.bindPopup(`
-            <b>${idVeiculo}</b><br>
-            🚗 ${vel} km/h
-        `);
-
         if(primeiraCarga){
 
             map.setView(pos,16);
@@ -437,7 +429,7 @@ function monitorarVeiculo(idVeiculo){
             `veiculos/${idVeiculo}/historico`
         ),
 
-        limitToLast(10)
+        limitToLast(50)
     );
 
     onValue(historicoRef,(snapshot)=>{
@@ -454,17 +446,48 @@ function monitorarVeiculo(idVeiculo){
                 b.timestamp - a.timestamp
         );
 
-        // rota pelas ruas
-        desenharRotaReal(listaPontos);
+        // REMOVE REPETIDOS
+        const locaisUnicos = [];
 
-        // tabela
+        const locaisVisitados =
+            new Set();
+
+        for(const p of listaPontos){
+
+            const bairro =
+                p.endereco?.bairro || "";
+
+            const cidade =
+                p.endereco?.cidade || "";
+
+            const rua =
+                p.endereco?.rua || "";
+
+            const chave =
+                `${bairro}-${cidade}-${rua}`;
+
+            if(locaisVisitados.has(chave))
+                continue;
+
+            locaisVisitados.add(chave);
+
+            locaisUnicos.push(p);
+
+            if(locaisUnicos.length >= 10)
+                break;
+        }
+
+        // DESENHA ROTA
+        desenharRotaReal(locaisUnicos);
+
+        // TABELA
         const tabela =
             document.getElementById(
                 'tabela-admin-corpo'
             );
 
         tabela.innerHTML =
-            listaPontos.map(p=>`
+            locaisUnicos.map(p=>`
 
             <tr>
 
@@ -474,20 +497,33 @@ function monitorarVeiculo(idVeiculo){
 
                 <td>
 
-                    <small>
+                    <b style="
+                        color:#00bcd4;
+                    ">
+
                         📍 ${
+                            p.endereco?.bairro ||
                             p.endereco?.rua ||
-                            "Local Desconhecido"
+                            "Local desconhecido"
                         }
-                    </small>
+
+                    </b>
 
                     <br>
 
-                    <b>
-                        🏙️ ${
-                            p.endereco?.cidade || "-"
+                    <small>
+
+                        ${
+                            p.endereco?.cidade ||
+                            "-"
                         }
-                    </b>
+
+                        ${
+                            p.endereco?.estado ||
+                            ""
+                        }
+
+                    </small>
 
                 </td>
 
