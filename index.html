@@ -1,228 +1,536 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Everton GPS - Teste do Veículo</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        :root { --primary: #00ff00; --bg: #121212; --card: #1e1e1e; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg); color: white; padding: 10px; }
-        header { background: var(--card); padding: 15px; text-align: center; border-bottom: 2px solid var(--primary); margin-bottom: 10px; }
-        #map { height: 300px; width: 100%; border-radius: 8px; }
-        .controls { padding: 15px 0; display: flex; flex-direction: column; gap: 10px; }
-        .status-box { background: #252525; padding: 12px; border-radius: 5px; border: 1px solid #333; font-size: 0.9em; }
-        .error-log { background: #3a1a1a; border: 1px solid #ff4444; color: #ff8888; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 0.85em; margin-top: 10px; display: none; }
-        input { padding: 12px; border-radius: 5px; border: 1px solid #333; background: #252525; color: white; font-size: 1em; }
-        button { padding: 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; background: var(--primary); color: black; font-size: 1em; }
-    </style>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>Everton GPS - Transmissor</title>
+
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+
+:root{
+    --primary:#00ff88;
+    --bg:#121212;
+    --card:#1e1e1e;
+}
+
+body{
+    margin:0;
+    padding:10px;
+    background:var(--bg);
+    color:white;
+    font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+}
+
+header{
+    background:var(--card);
+    padding:15px;
+    border-bottom:2px solid var(--primary);
+    text-align:center;
+    margin-bottom:10px;
+}
+
+#map{
+    height:320px;
+    width:100%;
+    border-radius:10px;
+}
+
+.controls{
+    margin-top:15px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+input{
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    background:#252525;
+    color:white;
+    font-size:1em;
+}
+
+button{
+    padding:14px;
+    border:none;
+    border-radius:8px;
+    background:var(--primary);
+    color:black;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.status-box{
+    background:#252525;
+    padding:12px;
+    border-radius:8px;
+    border:1px solid #333;
+    line-height:1.6;
+}
+
+.error-log{
+    background:#3a1a1a;
+    border:1px solid #ff4444;
+    color:#ff9999;
+    padding:10px;
+    border-radius:8px;
+    display:none;
+    font-size:.85em;
+    font-family:monospace;
+}
+
+</style>
+
 </head>
+
 <body>
 
-    <header>
-        <h2 style="margin:0">🛰️ Everton GPS - Transmissor</h2>
-    </header>
+<header>
 
-    <div id="map"></div>
+    <h2 style="margin:0">
+        🛰️ Everton GPS - Transmissor
+    </h2>
 
-    <div class="controls">
-        <input type="text" id="veiculoID" placeholder="Identificação do Veículo" value="VEICULO-01">
-        <button id="btnForçar" onclick="window.forcarEnvioTeste()">FORÇAR ENVIO DE TESTE (Sem GPS)</button>
-        
-        <div class="status-box">
-            <strong>Status do Sistema:</strong>
-            <div id="statusText">Iniciando scripts...</div>
+</header>
+
+<div id="map"></div>
+
+<div class="controls">
+
+    <input
+        type="text"
+        id="veiculoID"
+        value="VEICULO-01"
+        placeholder="ID do veículo">
+
+    <button onclick="window.forcarEnvioTeste()">
+
+        FORÇAR TESTE
+
+    </button>
+
+    <div class="status-box">
+
+        <strong>Status:</strong>
+
+        <div id="statusText">
+
+            Inicializando...
+
         </div>
 
-        <div id="errorLog" class="error-log"></div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <div id="errorLog"
+         class="error-log"></div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-        async function buscarEndereco(lat, lon) {
+</div>
 
-    try {
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-        const resposta = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+<script type="module">
+
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+
+import {
+    getDatabase,
+    ref,
+    set,
+    push
+}
+from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+const firebaseConfig = {
+
+    apiKey:
+    "AIzaSyDwKIS8wL3D7OuaysVFWz3D7Oua",
+
+    authDomain:
+    "everton-gps.firebaseapp.com",
+
+    databaseURL:
+    "https://everton-gps-default-rtdb.firebaseio.com",
+
+    projectId:
+    "everton-gps",
+
+    storageBucket:
+    "everton-gps.appspot.com",
+
+    messagingSenderId:
+    "688936933095",
+
+    appId:
+    "1:688936933095:web:5508a8e1008f1b4020a1db",
+
+    measurementId:
+    "G-X14EWTZN18"
+};
+
+const app = initializeApp(firebaseConfig);
+
+const db = getDatabase(app);
+
+const statusText =
+    document.getElementById(
+        'statusText'
+    );
+
+const errorLog =
+    document.getElementById(
+        'errorLog'
+    );
+
+function mostrarErro(origem,mensagem){
+
+    errorLog.style.display = "block";
+
+    errorLog.innerHTML += `
+        [${origem}] ${mensagem}<br>
+    `;
+
+    console.error(origem,mensagem);
+}
+
+// MAPA
+
+let map;
+let marcador;
+let rota;
+
+function initMap(){
+
+    map = L.map('map').setView(
+        [-23.5505,-46.6333],
+        15
+    );
+
+    L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+            attribution:'© OpenStreetMap'
+        }
+    ).addTo(map);
+
+    rota = L.polyline([],{
+        color:'#00ff88',
+        weight:5
+    }).addTo(map);
+
+    marcador = L.marker([
+        -23.5505,
+        -46.6333
+    ]).addTo(map);
+}
+
+initMap();
+
+// CACHE ENDEREÇO
+let ultimoEndereco = null;
+let ultimaConsulta = 0;
+
+async function buscarEndereco(lat,lon){
+
+    // evita spam
+    const agora = Date.now();
+
+    if(
+        ultimoEndereco &&
+        (agora - ultimaConsulta < 5000)
+    ){
+        return ultimoEndereco;
+    }
+
+    try{
+
+        const url =
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+
+        const resposta =
+            await fetch(url,{
+                headers:{
+                    'User-Agent':
+                    'EvertonGPS/1.0'
+                }
+            });
+
+        const dados =
+            await resposta.json();
+
+        const endereco = {
+
+            rua:
+                dados.address?.road ||
+                "",
+
+            bairro:
+                dados.address?.suburb ||
+                dados.address?.neighbourhood ||
+                "",
+
+            cidade:
+                dados.address?.city ||
+                dados.address?.town ||
+                dados.address?.village ||
+                "",
+
+            estado:
+                dados.address?.state ||
+                "",
+
+            pais:
+                dados.address?.country ||
+                "",
+
+            cep:
+                dados.address?.postcode ||
+                "",
+
+            // NOME DO LOCAL
+            local:
+
+                dados.name ||
+
+                dados.address?.shop ||
+
+                dados.address?.tourism ||
+
+                dados.address?.amenity ||
+
+                dados.address?.building ||
+
+                "",
+
+            completo:
+                dados.display_name || ""
+        };
+
+        ultimoEndereco = endereco;
+
+        ultimaConsulta = agora;
+
+        return endereco;
+
+    }catch(e){
+
+        mostrarErro(
+            "Nominatim",
+            e.message
         );
 
-        const dados = await resposta.json();
-
         return {
-            rua: dados.address.road || "Rua desconhecida",
-            bairro: dados.address.suburb || dados.address.neighbourhood || "",
-            cidade: dados.address.city || dados.address.town || dados.address.village || "",
-            estado: dados.address.state || "",
-            completo: dados.display_name || "Endereço não encontrado"
+
+            rua:"-",
+            bairro:"-",
+            cidade:"-",
+            estado:"-",
+            local:"-",
+            completo:"-"
         };
-
-    } catch (erro) {
-
-        return {
-            rua: "-",
-            bairro: "-",
-            cidade: "-",
-            estado: "-",
-            completo: "Erro ao localizar"
-        };
-
     }
 }
 
-        // ⚠️ COLE AQUI AS SUAS CREDENCIAIS EXATAS DO FIREBASE
-        // ✅ SUAS CREDENCIAIS REAIS DO FIREBASE (Copiadas da sua foto)
-const firebaseConfig = {
-    apiKey: "AIzaSyDwKIS8wL3D7OuaysVFWz3D7Oua", // Deixei igual ao começo da sua foto, confira se bate com o seu código completo
-    authDomain: "everton-gps.firebaseapp.com",
-    databaseURL: "https://everton-gps-default-rtdb.firebaseio.com", // Obrigatório para o Realtime Database funcionar
-    projectId: "everton-gps",
-    storageBucket: "everton-gps.appspot.com",
-    messagingSenderId: "688936933095",
-    appId: "1:688936933095:web:5508a8e1008f1b4020a1db", // Substitua pelo seu appId completo caso o final seja diferente
-    measurementId: "G-X14EWTZN18"
-};
+async function enviarDadosParaFirebase(dados){
 
+    try{
 
-        // Elementos da Tela
-        const statusText = document.getElementById('statusText');
-        const errorLog = document.getElementById('errorLog');
+        const vID =
+            document.getElementById(
+                'veiculoID'
+            ).value || "VEICULO-01";
 
-        function mostrarErro(origem, mensagem) {
-            errorLog.style.display = "block";
-            errorLog.innerHTML += `[${origem}] ${mensagem}<br>`;
-            console.error(`[${origem}]`, mensagem);
-        }
+        statusText.innerHTML =
+            "📡 Obtendo endereço...";
 
-        // Inicialização Segura do Firebase
-        let db;
-        try {
-            const app = initializeApp(firebaseConfig);
-            db = getDatabase(app);
-            statusText.innerText = "Firebase conectado com sucesso. Tentando ler GPS...";
-        } catch (e) {
-            mostrarErro("Firebase Init", e.message);
-            statusText.innerText = "Erro ao inicializar o Firebase.";
-        }
-
-        // Configuração do Mapa Local
-        let map, rota, marcador;
-        function initMap() {
-            try {
-                map = L.map('map').setView([-23.5505, -46.6333], 15);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                rota = L.polyline([], {color: '#00ff00', weight: 5}).addTo(map);
-                marcador = L.marker([-23.5505, -46.6333]).addTo(map);
-            } catch (e) {
-                mostrarErro("Leaflet Map", e.message);
-            }
-        }
-        initMap();
-
-        // Função de envio para o Firebase (Centralizada para evitar repetição de código)
-        async function enviarDadosParaFirebase(dados) {
-
-    const vID = document.getElementById('veiculoID').value || "VEICULO-PADRAO";
-
-    statusText.innerText = "Buscando endereço...";
-
-    // Busca rua/cidade pelo GPS
-    const endereco = await buscarEndereco(dados.lat, dados.lon);
-
-    // adiciona endereço nos dados
-    dados.endereco = endereco;
-
-    statusText.innerText = "Enviando coordenadas para o Firebase...";
-
-    // Grava posição atual
-    set(ref(db, `veiculos/${vID}/atual`), dados)
-
-        .then(() => {
-
-            statusText.innerHTML = `
-                📡 Transmitindo com sucesso!<br>
-                📍 ${endereco.rua}<br>
-                🏙️ ${endereco.cidade}
-            `;
-
-            // salva histórico
-            push(ref(db, `veiculos/${vID}/historico`), dados);
-
-            // atualiza mapa
-            const pos = [dados.lat, dados.lon];
-
-            marcador.setLatLng(pos);
-
-            marcador.bindPopup(`
-                <b>${vID}</b><br>
-                🚗 ${dados.velocidade} km/h<br>
-                📍 ${endereco.rua}<br>
-                🏙️ ${endereco.cidade}
-            `);
-
-            rota.addLatLng(pos);
-
-            map.panTo(pos);
-
-        })
-
-        .catch((error) => {
-
-            mostrarErro(
-                "Firebase Database",
-                "Erro ao gravar: " + error.message
+        // endereço real
+        const endereco =
+            await buscarEndereco(
+                dados.lat,
+                dados.lon
             );
 
-            statusText.innerText = "Erro de gravação.";
+        dados.endereco = endereco;
 
-        });
+        statusText.innerHTML = `
+            📍 ${endereco.local || endereco.rua}<br>
+            🏙️ ${endereco.bairro}<br>
+            🚗 ${dados.velocidade} km/h
+        `;
+
+        // posição atual
+        await set(
+            ref(
+                db,
+                `veiculos/${vID}/atual`
+            ),
+            dados
+        );
+
+        // histórico
+        await push(
+            ref(
+                db,
+                `veiculos/${vID}/historico`
+            ),
+            dados
+        );
+
+        // mapa
+        const pos = [
+            dados.lat,
+            dados.lon
+        ];
+
+        marcador.setLatLng(pos);
+
+        marcador.bindPopup(`
+
+            <b>${vID}</b><br>
+
+            📍 ${
+                endereco.local ||
+                endereco.rua
+            }<br>
+
+            🏙️ ${
+                endereco.bairro
+            } - ${
+                endereco.cidade
+            }<br>
+
+            🚗 ${
+                dados.velocidade
+            } km/h
+
+        `);
+
+        rota.addLatLng(pos);
+
+        map.panTo(pos);
+
+    }catch(e){
+
+        mostrarErro(
+            "Firebase",
+            e.message
+        );
+    }
 }
 
-        // Ativação Automática do GPS Real
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(
-                (pos) => {
-                    const dadosGPS = {
-                        lat: pos.coords.latitude,
-                        lon: pos.coords.longitude,
-                        hora: new Date().toLocaleTimeString(),
-                        timestamp: new Date().getTime(),
-                        acuracia: pos.coords.accuracy.toFixed(1),
-                        velocidade: pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0
-                    };
-                    enviarDadosParaFirebase(dadosGPS);
-                },
-                (err) => {
-                    let motivos = ["Desconhecido", "Permissão negada (Você bloqueou o acesso ao GPS)", "Posição indisponível", "Tempo limite esgotado"];
-                    mostrarErro("GPS Real", `Erro código ${err.code}: ${motivos[err.code] || err.message}`);
-                    statusText.innerText = "O GPS falhou. Use o botão de simulação abaixo para testar o Firebase.";
-                },
-                { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-            );
-        } else {
-            mostrarErro("GPS Hardware", "Este navegador/aparelho não possui suporte a Geolocalização.");
-        }
+// GPS REAL
+if(navigator.geolocation){
 
-        // FUNÇÃO DE DIAGNÓSTICO (Botão na tela): Ignora o GPS e tenta enviar uma coordenada falsa
-        window.forcarEnvioTeste = function() {
-            if (!db) {
-                alert("O Firebase não foi inicializado corretamente. Olhe o log de erros vermelho.");
-                return;
-            }
-            // Coordenada fictícia (Avenida Paulista, SP) apenas para testar a comunicação com o Firebase
-            const coordenadaFalsa = {
-                lat: -23.5616 + (Math.random() * 0.002), 
-                lon: -46.6560 + (Math.random() * 0.002),
-                hora: new Date().toLocaleTimeString(),
-                timestamp: new Date().getTime(),
-                acuracia: "1.0",
-                velocidade: "45"
+    navigator.geolocation.watchPosition(
+
+        async(pos)=>{
+
+            const dadosGPS = {
+
+                lat:
+                    pos.coords.latitude,
+
+                lon:
+                    pos.coords.longitude,
+
+                hora:
+                    new Date()
+                    .toLocaleTimeString(),
+
+                timestamp:
+                    Date.now(),
+
+                acuracia:
+                    pos.coords.accuracy
+                    .toFixed(1),
+
+                velocidade:
+
+                    pos.coords.speed ?
+
+                    (
+                        pos.coords.speed * 3.6
+                    ).toFixed(0)
+
+                    : 0
             };
-            enviarDadosParaFirebase(coordenadaFalsa);
-        };
-    </script>
+
+            await enviarDadosParaFirebase(
+                dadosGPS
+            );
+
+        },
+
+        (err)=>{
+
+            mostrarErro(
+                "GPS",
+                err.message
+            );
+
+            statusText.innerHTML =
+                "❌ GPS falhou";
+        },
+
+        {
+            enableHighAccuracy:true,
+
+            maximumAge:0,
+
+            timeout:10000
+        }
+    );
+
+}else{
+
+    mostrarErro(
+        "GPS",
+        "Geolocalização não suportada"
+    );
+}
+
+// TESTE
+window.forcarEnvioTeste =
+async function(){
+
+    const fake = {
+
+        lat:
+            -23.5616 +
+            (Math.random()*0.002),
+
+        lon:
+            -46.6560 +
+            (Math.random()*0.002),
+
+        hora:
+            new Date()
+            .toLocaleTimeString(),
+
+        timestamp:
+            Date.now(),
+
+        acuracia:"1.0",
+
+        velocidade:
+            Math.floor(
+                Math.random()*80
+            )
+    };
+
+    await enviarDadosParaFirebase(fake);
+};
+
+</script>
+
 </body>
 </html>
