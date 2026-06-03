@@ -8,10 +8,13 @@
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>Everton GPS - Transmissor</title>
+<title>Everton GPS PRO</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"/>
 
 <style>
 
@@ -88,6 +91,10 @@ button{
     font-family:monospace;
 }
 
+.leaflet-routing-container{
+    display:none !important;
+}
+
 </style>
 
 </head>
@@ -97,7 +104,7 @@ button{
 <header>
 
 <h2 style="margin:0">
-🛰️ Everton GPS - Transmissor
+🛰️ Everton GPS PRO
 </h2>
 
 </header>
@@ -136,6 +143,8 @@ class="error-log"></div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
 <script type="module">
 
@@ -177,9 +186,11 @@ const firebaseConfig = {
     "G-X14EWTZN18"
 };
 
-const app = initializeApp(firebaseConfig);
+const app =
+initializeApp(firebaseConfig);
 
-const db = getDatabase(app);
+const db =
+getDatabase(app);
 
 const statusText =
 document.getElementById('statusText');
@@ -192,7 +203,7 @@ function mostrarErro(origem,mensagem){
     errorLog.style.display = "block";
 
     errorLog.innerHTML += `
-        [${origem}] ${mensagem}<br>
+    [${origem}] ${mensagem}<br>
     `;
 
     console.error(origem,mensagem);
@@ -201,14 +212,28 @@ function mostrarErro(origem,mensagem){
 // ================= MAPA =================
 
 let map;
+
 let marcador;
-let rota;
+
+let controleRota;
+
+let historicoRota = [];
+
+const carroIcone = L.icon({
+
+    iconUrl:
+    'https://cdn-icons-png.flaticon.com/512/744/744465.png',
+
+    iconSize:[40,40],
+
+    iconAnchor:[20,20]
+});
 
 function initMap(){
 
     map = L.map('map').setView(
         [-23.5505,-46.6333],
-        15
+        16
     );
 
     L.tileLayer(
@@ -218,66 +243,183 @@ function initMap(){
         }
     ).addTo(map);
 
-    rota = L.polyline([],{
-        color:'#00ff88',
-        weight:5
-    }).addTo(map);
-
-    marcador = L.marker([
-        -23.5505,
-        -46.6333
-    ]).addTo(map);
+    marcador = L.marker(
+        [-23.5505,-46.6333],
+        {
+            icon:carroIcone
+        }
+    ).addTo(map);
 }
 
 initMap();
 
-// ========= API ENDEREÇO =========
+// ================= DISTÂNCIA =================
+
+function distanciaMetros(
+lat1, lon1,
+lat2, lon2
+){
+
+    const R = 6371e3;
+
+    const φ1 = lat1 * Math.PI/180;
+    const φ2 = lat2 * Math.PI/180;
+
+    const Δφ =
+    (lat2-lat1) * Math.PI/180;
+
+    const Δλ =
+    (lon2-lon1) * Math.PI/180;
+
+    const a =
+
+    Math.sin(Δφ/2) *
+    Math.sin(Δφ/2)
+
+    +
+
+    Math.cos(φ1) *
+    Math.cos(φ2)
+
+    *
+
+    Math.sin(Δλ/2) *
+    Math.sin(Δλ/2);
+
+    const c =
+    2 * Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1-a)
+    );
+
+    return R*c;
+}
+
+// ================= ROTA REAL =================
+
+async function desenharRotaReal(){
+
+    try{
+
+        if(historicoRota.length < 2)
+            return;
+
+        if(controleRota){
+
+            map.removeControl(
+                controleRota
+            );
+        }
+
+        const waypoints =
+        historicoRota.map(p=>
+
+            L.latLng(
+                p.lat,
+                p.lon
+            )
+        );
+
+        controleRota =
+        L.Routing.control({
+
+            waypoints,
+
+            addWaypoints:false,
+
+            draggableWaypoints:false,
+
+            fitSelectedRoutes:false,
+
+            show:false,
+
+            createMarker:()=>null,
+
+            router:
+            L.Routing.osrmv1({
+
+                serviceUrl:
+                'https://router.project-osrm.org/route/v1'
+            }),
+
+            lineOptions:{
+
+                styles:[{
+
+                    color:'#00ff88',
+
+                    opacity:0.9,
+
+                    weight:6
+                }]
+            }
+
+        }).addTo(map);
+
+    }catch(e){
+
+        mostrarErro(
+            "Rota",
+            e.message
+        );
+    }
+}
+
+// ================= ENDEREÇO =================
 
 async function buscarEndereco(lat, lon){
 
     try{
 
-        const url =
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`;
-
         const resposta =
-            await fetch(url);
+        await fetch(
+
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+
+        );
 
         const dados =
-            await resposta.json();
+        await resposta.json();
 
         return {
 
             rua:
-                dados.locality || "",
+            dados.address.road || "",
 
             bairro:
-                dados.localityInfo
-                ?.administrative?.[2]
-                ?.name || "",
+            dados.address.suburb ||
+
+            dados.address.neighbourhood ||
+
+            "",
 
             cidade:
-                dados.city ||
-                dados.locality || "",
+            dados.address.city ||
+
+            dados.address.town ||
+
+            dados.address.village ||
+
+            "",
 
             estado:
-                dados.principalSubdivision || "",
-
-            pais:
-                dados.countryName || "",
+            dados.address.state || "",
 
             local:
-                dados.locality ||
-                dados.city || "",
+            dados.name ||
+
+            dados.display_name ||
+
+            "",
 
             completo:
-                dados.locality || ""
+            dados.display_name || ""
         };
 
     }catch(e){
 
         mostrarErro(
-            "Localização",
+            "Endereço",
             e.message
         );
 
@@ -293,7 +435,7 @@ async function buscarEndereco(lat, lon){
     }
 }
 
-// ========= ENVIO FIREBASE =========
+// ================= FIREBASE =================
 
 async function enviarDadosParaFirebase(dados){
 
@@ -303,6 +445,31 @@ async function enviarDadosParaFirebase(dados){
         document.getElementById(
             'veiculoID'
         ).value || "VEICULO-01";
+
+        // ignora GPS ruim
+        const ultimo =
+        historicoRota[
+            historicoRota.length-1
+        ];
+
+        if(ultimo){
+
+            const distancia =
+            distanciaMetros(
+
+                ultimo.lat,
+                ultimo.lon,
+
+                dados.lat,
+                dados.lon
+            );
+
+            // ignora salto impossível
+            if(distancia > 300){
+
+                return;
+            }
+        }
 
         statusText.innerHTML =
         "📡 Buscando endereço...";
@@ -315,7 +482,7 @@ async function enviarDadosParaFirebase(dados){
 
         dados.endereco = endereco;
 
-        // SALVA ATUAL
+        // salva atual
         await set(
             ref(
                 db,
@@ -324,7 +491,7 @@ async function enviarDadosParaFirebase(dados){
             dados
         );
 
-        // SALVA HISTÓRICO
+        // salva histórico
         await push(
             ref(
                 db,
@@ -333,7 +500,22 @@ async function enviarDadosParaFirebase(dados){
             dados
         );
 
-        // MAPA
+        // rota local
+        historicoRota.push({
+
+            lat:dados.lat,
+            lon:dados.lon
+        });
+
+        // mantém últimos 30
+        if(historicoRota.length > 30){
+
+            historicoRota.shift();
+        }
+
+        // desenha rota real
+        await desenharRotaReal();
+
         const pos = [
             dados.lat,
             dados.lon
@@ -341,34 +523,34 @@ async function enviarDadosParaFirebase(dados){
 
         marcador.setLatLng(pos);
 
-        rota.addLatLng(pos);
-
         map.panTo(pos);
 
         marcador.bindPopup(`
 
-            <b>${vID}</b><br>
+        <b>${vID}</b><br>
 
-            📍 ${endereco.local}<br>
+        📍 ${endereco.local}<br>
 
-            🏙️ ${endereco.cidade}<br>
+        🏙️ ${endereco.bairro}
+        - ${endereco.cidade}<br>
 
-            🚗 ${dados.velocidade} km/h
+        🚗 ${dados.velocidade} km/h
 
         `);
 
         statusText.innerHTML = `
 
-            ✅ Transmitindo<br><br>
+        ✅ Transmitindo<br><br>
 
-            📍 ${endereco.local}<br>
+        📍 ${endereco.local}<br>
 
-            🏙️ ${endereco.cidade}<br>
+        🏙️ ${endereco.bairro}
+        - ${endereco.cidade}<br>
 
-            🚗 ${dados.velocidade} km/h<br>
+        🚗 ${dados.velocidade} km/h<br>
 
-            🎯 Precisão:
-            ${dados.acuracia}m
+        🎯 Precisão:
+        ${dados.acuracia}m
 
         `;
 
@@ -381,7 +563,7 @@ async function enviarDadosParaFirebase(dados){
     }
 }
 
-// ========= GPS REAL =========
+// ================= GPS =================
 
 let ultimoEnvio = 0;
 
@@ -391,43 +573,49 @@ navigator.geolocation.watchPosition(
 
 async(pos)=>{
 
-    // evita spam
     const agora = Date.now();
 
-    if(agora - ultimoEnvio < 5000)
-        return;
+    // evita spam
+    if(
+        agora - ultimoEnvio
+        < 5000
+    ) return;
 
     ultimoEnvio = agora;
+
+    // ignora GPS ruim
+    if(pos.coords.accuracy > 40)
+        return;
 
     const dadosGPS = {
 
         lat:
-            pos.coords.latitude,
+        pos.coords.latitude,
 
         lon:
-            pos.coords.longitude,
+        pos.coords.longitude,
 
         hora:
-            new Date()
-            .toLocaleTimeString(),
+        new Date()
+        .toLocaleTimeString(),
 
         timestamp:
-            Date.now(),
+        Date.now(),
 
         acuracia:
-            Number(
-                pos.coords.accuracy
-            ).toFixed(1),
+        Number(
+            pos.coords.accuracy
+        ).toFixed(1),
 
         velocidade:
 
-            pos.coords.speed ?
+        pos.coords.speed ?
 
-            (
-                pos.coords.speed * 3.6
-            ).toFixed(0)
+        (
+            pos.coords.speed * 3.6
+        ).toFixed(0)
 
-            : 0
+        : 0
     };
 
     await enviarDadosParaFirebase(
@@ -462,7 +650,7 @@ mostrarErro(
 
 }
 
-// ========= TESTE =========
+// ================= TESTE =================
 
 window.forcarEnvioTeste =
 async function(){
@@ -470,26 +658,26 @@ async function(){
     const fake = {
 
         lat:
-            -23.5616 +
-            (Math.random()*0.002),
+        -23.5616 +
+        (Math.random()*0.002),
 
         lon:
-            -46.6560 +
-            (Math.random()*0.002),
+        -46.6560 +
+        (Math.random()*0.002),
 
         hora:
-            new Date()
-            .toLocaleTimeString(),
+        new Date()
+        .toLocaleTimeString(),
 
         timestamp:
-            Date.now(),
+        Date.now(),
 
         acuracia:"1.0",
 
         velocidade:
-            Math.floor(
-                Math.random()*80
-            )
+        Math.floor(
+            Math.random()*80
+        )
     };
 
     await enviarDadosParaFirebase(fake);
