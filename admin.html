@@ -7,36 +7,50 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { --primary: #00bcd4; --bg: #1a1a1a; --card: #2d2d2d; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg); color: white; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg); color: white; overflow: hidden; }
         
         .container { display: flex; flex-direction: column; height: 100vh; }
         
-        header { background: var(--card); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary); }
-        .logo { font-size: 1.4em; font-weight: bold; margin: 0; display: flex; align-items: center; gap: 10px; }
+        header { background: var(--card); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary); z-index: 1000; }
+        .logo { font-size: 1.2em; font-weight: bold; margin: 0; display: flex; align-items: center; gap: 10px; }
         
-        #map { flex-grow: 1; width: 100%; min-height: 300px; background: #222; }
+        #map { flex-grow: 1; width: 100%; background: #222; }
         
-        .painel-inferior { background: var(--card); padding: 15px; display: grid; grid-template-columns: 1fr 2fr; gap: 20px; max-height: 250px; overflow-y: auto; }
+        .painel-inferior { 
+            background: var(--card); 
+            padding: 15px; 
+            display: grid; 
+            grid-template-columns: 1fr 1.5fr; 
+            gap: 15px; 
+            height: 280px; 
+            overflow-y: auto;
+            border-top: 1px solid #444;
+        }
         
-        .card-status { background: #222; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary); }
-        .card-status h3 { margin-top: 0; color: var(--primary); font-size: 1em; }
-        .info-linha { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em; }
-        .info-linha span:last-child { font-weight: bold; }
+        .card-status { background: #222; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary); height: fit-content; }
+        .card-status h3 { margin-top: 0; color: var(--primary); font-size: 1em; margin-bottom: 10px; }
+        .info-linha { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85em; border-bottom: 1px solid #333; padding-bottom: 4px; }
+        .info-linha span:last-child { font-weight: bold; color: #fff; }
         
-        .tabela-container { background: #222; border-radius: 8px; overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left; }
+        .tabela-container { background: #222; border-radius: 8px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8em; text-align: left; min-width: 400px; }
         th, td { padding: 10px; border-bottom: 1px solid #333; }
-        th { background: #151515; color: var(--primary); }
+        th { background: #151515; color: var(--primary); position: sticky; top: 0; }
         
         .badge { background: #4caf50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; }
         .badge.offline { background: #f44336; }
+
+        @media (max-width: 600px) {
+            .painel-inferior { grid-template-columns: 1fr; }
+            .logo { font-size: 1em; }
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
         <header>
-            <div class="logo">🖥️ Everton GPS - Painel Admin</div>
+            <div class="logo">🖥️ Everton GPS - Admin</div>
             <div>
                 <select id="seletorVeiculo" style="padding: 8px; background: #222; color: white; border: 1px solid var(--primary); border-radius: 4px;">
                     <option value="VEICULO-01">Veículo 01 (Padrão)</option>
@@ -49,10 +63,10 @@
         <div class="painel-inferior">
             <div class="card-status">
                 <h3>Status do Telemetria</h3>
-                <div class="info-linha"><span>Veículo:</span> <span id="info-id">-</span></div>
+                <div class="info-linha"><span>Veículo:</span> <span id="info-id">VEICULO-01</span></div>
                 <div class="info-linha"><span>Conexão:</span> <span id="info-conexao" class="badge offline">Offline</span></div>
                 <div class="info-linha"><span>Última Atualização:</span> <span id="info-hora">-</span></div>
-                <div class="info-linha"><span>Velocidade:</span> <span id="info-vel">0 km/h</span></div>
+                <div class="info-linha"><span>Velocidade:</span> <span id="info-vel" style="color: #00bcd4;">0 km/h</span></div>
                 <div class="info-linha"><span>Precisão GPS:</span> <span id="info-precisao">-</span></div>
             </div>
 
@@ -60,14 +74,13 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Hora</th>
-                            <th>Latitude</th>
-                            <th>Longitude</th>
-                            <th>Precisão</th>
+                            <th>Horário</th>
+                            <th>Local / Cidade</th>
+                            <th>Velocidade</th>
                         </tr>
                     </thead>
                     <tbody id="tabela-admin-corpo">
-                        <tr><td colspan="4" style="text-align:center; color:#777;">Aguardando dados do veículo...</td></tr>
+                        <tr><td colspan="3" style="text-align:center; color:#777;">Aguardando dados...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -80,7 +93,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // ⚠️ ADICIONE SUAS CONFIGURAÇÕES REAIS DO FIREBASE AQUI IGUAL FEZ NO TRANSMISSOR
         const firebaseConfig = {
             apiKey: "AIzaSyDwKIS8wL3D7OuaysVFWz3D7Oua",
             authDomain: "everton-gps.firebaseapp.com",
@@ -92,39 +104,37 @@
             measurementId: "G-X14EWTZN18"
         };
 
-        // Inicializa o Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-
         const L = window.L;
         let map, rotaLinha, marcadorVeiculo;
         let primeiraCarga = true;
 
-        // Inicializa o Mapa Admin
         function initMap() {
             map = L.map('map').setView([-23.5505, -46.6333], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap'
             }).addTo(map);
-
             rotaLinha = L.polyline([], {color: '#00bcd4', weight: 4, opacity: 0.8}).addTo(map);
         }
 
-        // Conecta ao Firebase e monitora o veículo selecionado
         function monitorarVeiculo(idVeiculo) {
             document.getElementById('info-id').innerText = idVeiculo;
-
             const atualRef = ref(db, `veiculos/${idVeiculo}/atual`);
+
             onValue(atualRef, (snapshot) => {
                 const dados = snapshot.val();
                 if (dados) {
                     const pos = [dados.lat, dados.lon];
+                    const vel = dados.velocidade ?? dados.speed ?? 0;
 
                     if (!marcadorVeiculo) {
                         marcadorVeiculo = L.marker(pos).addTo(map);
+                    } else {
+                        marcadorVeiculo.setLatLng(pos);
                     }
-                    marcadorVeiculo.setLatLng(pos);
-                    marcadorVeiculo.bindPopup(`<b>${idVeiculo}</b><br>Velocidade: ${dados.velocidade || 0} km/h`);
+                    
+                    marcadorVeiculo.bindPopup(`<b>${idVeiculo}</b><br>🚗 ${vel} km/h`);
 
                     if (primeiraCarga) {
                         map.setView(pos, 16);
@@ -133,9 +143,9 @@
 
                     document.getElementById('info-conexao').innerText = "Online";
                     document.getElementById('info-conexao').className = "badge";
-                    document.getElementById('info-hora').innerText = dados.hora;
-                    document.getElementById('info-vel').innerText = (dados.velocidade || 0) + " km/h";
-                    document.getElementById('info-precisao').innerText = dados.acuracia + "m";
+                    document.getElementById('info-hora').innerText = dados.hora || "-";
+                    document.getElementById('info-vel').innerText = vel + " km/h";
+                    document.getElementById('info-precisao').innerText = (dados.acuracia || dados.accuracy || 0) + "m";
                 }
             });
 
@@ -144,18 +154,21 @@
                 const dados = snapshot.val();
                 if (dados) {
                     const listaPontos = Object.values(dados);
-                    listaPontos.sort((a, b) => a.timestamp - b.timestamp);
+                    listaPontos.sort((a, b) => b.timestamp - a.timestamp); // Inverte para o mais recente aparecer primeiro
 
-                    const coordenadasArr = listaPontos.map(p => [p.lat, p.lon]);
-                    rotaLinha.setLatLngs(coordenadasArr);
+                    rotaLinha.setLatLngs(listaPontos.map(p => [p.lat, p.lon]).reverse());
 
                     const tabelaCorpo = document.getElementById('tabela-admin-corpo');
-                    tabelaCorpo.innerHTML = listaPontos.slice().reverse().map(p => `
+                    tabelaCorpo.innerHTML = listaPontos.map(p => `
                         <tr>
-                            <td>${p.hora}</td>
-                            <td>${p.lat.toFixed(6)}</td>
-                            <td>${p.lon.toFixed(6)}</td>
-                            <td>${p.acuracia}m</td>
+                            <td>${p.hora || "-"}</td>
+                            <td>
+                                <small>📍 ${p.endereco?.rua || "Local Desconhecido"}</small><br>
+                                <b>🏙️ ${p.endereco?.cidade || "-"}</b>
+                            </td>
+                            <td style="color: #00bcd4; font-weight: bold;">
+                                ${(p.velocidade ?? p.speed ?? 0)} km/h
+                            </td>
                         </tr>
                     `).join('');
                 }
@@ -166,7 +179,6 @@
             initMap();
             const seletor = document.getElementById('seletorVeiculo');
             monitorarVeiculo(seletor.value);
-
             seletor.addEventListener('change', (e) => {
                 primeiraCarga = true;
                 if (marcadorVeiculo) map.removeLayer(marcadorVeiculo);
