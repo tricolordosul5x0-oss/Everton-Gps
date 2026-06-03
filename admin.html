@@ -4,9 +4,7 @@
 <head>
 
 <meta charset="UTF-8">
-
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Everton GPS PRO</title>
 
@@ -57,83 +55,54 @@ header{
 }
 
 .painel{
-
     background:var(--card);
-
     padding:15px;
-
     display:grid;
-
-    grid-template-columns:
-    1fr 1.5fr;
-
+    grid-template-columns:1fr 1.5fr;
     gap:15px;
-
     height:320px;
-
     overflow:auto;
 }
 
 .card{
-
     background:#252525;
-
     border-radius:10px;
-
     padding:15px;
 }
 
 .info{
-
     display:flex;
-
     justify-content:space-between;
-
     margin-bottom:10px;
-
     border-bottom:1px solid #333;
-
     padding-bottom:5px;
 }
 
 .badge{
-
     background:#4caf50;
-
     padding:4px 12px;
-
     border-radius:20px;
 }
 
 .badge.off{
-
     background:#f44336;
 }
 
 table{
-
     width:100%;
-
     border-collapse:collapse;
-
     font-size:.85em;
 }
 
 th,td{
-
     padding:10px;
-
     border-bottom:1px solid #333;
 }
 
 th{
-
     color:var(--primary);
-
     background:#151515;
-
     position:sticky;
-
     top:0;
 }
 
@@ -144,7 +113,6 @@ th{
 @media(max-width:700px){
 
     .painel{
-
         grid-template-columns:1fr;
     }
 }
@@ -197,8 +165,7 @@ Status do Veículo
 
 <div class="info">
 <span>Status:</span>
-<span id="info-conexao"
-class="badge off">
+<span id="info-conexao" class="badge off">
 Offline
 </span>
 </div>
@@ -309,11 +276,9 @@ const firebaseConfig = {
     "1:688936933095:web:5508a8e1008f1b4020a1db"
 };
 
-const app =
-initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 
-const db =
-getDatabase(app);
+const db = getDatabase(app);
 
 let map;
 let marcadorVeiculo;
@@ -322,18 +287,18 @@ let controleRota;
 const carroIcone = L.icon({
 
     iconUrl:
-    'https://cdn-icons-png.flaticon.com/512/744/744465.png',
+    'https://cdn-icons-png.flaticon.com/512/3202/3202926.png',
 
-    iconSize:[40,40],
+    iconSize:[42,42],
 
-    iconAnchor:[20,20]
+    iconAnchor:[21,21]
 });
 
 function initMap(){
 
     map = L.map('map').setView(
         [-23.5505,-46.6333],
-        14
+        15
     );
 
     L.tileLayer(
@@ -346,39 +311,20 @@ function initMap(){
 
 initMap();
 
-function calcularAngulo(
-lat1,lon1,
-lat2,lon2){
-
-    const dy = lat2-lat1;
-
-    const dx = lon2-lon1;
-
-    return Math.atan2(
-        dy,
-        dx
-    ) * 180 / Math.PI;
-}
-
 function distanciaMetros(
 lat1,lon1,
 lat2,lon2){
 
     const R = 6371e3;
 
-    const φ1 =
-    lat1 * Math.PI/180;
-
-    const φ2 =
-    lat2 * Math.PI/180;
+    const φ1 = lat1 * Math.PI/180;
+    const φ2 = lat2 * Math.PI/180;
 
     const Δφ =
-    (lat2-lat1) *
-    Math.PI/180;
+    (lat2-lat1) * Math.PI/180;
 
     const Δλ =
-    (lon2-lon1) *
-    Math.PI/180;
+    (lon2-lon1) * Math.PI/180;
 
     const a =
 
@@ -409,14 +355,15 @@ async function desenharRotaReal(listaPontos){
 
     try{
 
+        if(listaPontos.length < 2)
+            return;
+
         if(controleRota){
 
-            map.removeControl(
-                controleRota
-            );
+            map.removeControl(controleRota);
         }
 
-        const waypoints =
+        const pontos =
         listaPontos.map(p=>
 
             L.latLng(
@@ -428,22 +375,13 @@ async function desenharRotaReal(listaPontos){
         controleRota =
         L.Routing.control({
 
-            waypoints:waypoints,
-
-            router:
-            L.Routing.osrmv1({
-
-                serviceUrl:
-                'https://router.project-osrm.org/route/v1'
-            }),
+            waypoints:pontos,
 
             addWaypoints:false,
 
             draggableWaypoints:false,
 
-            routeWhileDragging:false,
-
-            fitSelectedRoutes:true,
+            fitSelectedRoutes:false,
 
             show:false,
 
@@ -453,22 +391,26 @@ async function desenharRotaReal(listaPontos){
 
                 styles:[{
 
-                    color:'#00d5ff',
+                    color:'#00ff88',
 
-                    weight:5,
+                    weight:6,
 
                     opacity:0.9
                 }]
-            }
+            },
+
+            router:
+            L.Routing.osrmv1({
+
+                serviceUrl:
+                'https://router.project-osrm.org/route/v1'
+            })
 
         }).addTo(map);
 
     }catch(e){
 
-        console.log(
-            "Erro rota:",
-            e
-        );
+        console.log(e);
     }
 }
 
@@ -490,112 +432,90 @@ function monitorarVeiculo(idVeiculo){
         const dados =
         snapshot.val();
 
-        if(dados){
+        if(!dados) return;
 
-            const pos = [
-                dados.lat,
-                dados.lon
-            ];
+        const pos = [
+            dados.lat,
+            dados.lon
+        ];
 
-            const vel =
-            dados.velocidade || 0;
+        if(!marcadorVeiculo){
 
-            if(!marcadorVeiculo){
+            marcadorVeiculo =
+            L.marker(pos,{
+                icon:carroIcone
+            }).addTo(map);
 
-                marcadorVeiculo =
-                L.marker(pos,{
+        }else{
 
-                    icon:carroIcone
-
-                }).addTo(map);
-
-            }else{
-
-                const atual =
-                marcadorVeiculo
-                .getLatLng();
-
-                const angulo =
-                calcularAngulo(
-
-                    atual.lat,
-                    atual.lng,
-
-                    dados.lat,
-                    dados.lon
-                );
-
-                marcadorVeiculo
-                .setRotationAngle?.(
-                    angulo
-                );
-
-                marcadorVeiculo
-                .setLatLng(pos);
-            }
-
-            marcadorVeiculo.bindPopup(`
-
-                <b>${idVeiculo}</b><br>
-
-                📍 ${
-                    dados.endereco?.local ||
-
-                    dados.endereco?.rua ||
-
-                    "-"
-                }<br>
-
-                🏙️ ${
-                    dados.endereco?.bairro ||
-
-                    "-"
-                } - ${
-                    dados.endereco?.cidade ||
-
-                    "-"
-                }<br>
-
-                🚗 ${vel} km/h
-
-            `);
-
-            document.getElementById(
-                'info-conexao'
-            ).innerText = "Online";
-
-            document.getElementById(
-                'info-conexao'
-            ).className = "badge";
-
-            document.getElementById(
-                'info-hora'
-            ).innerText =
-            dados.hora || "-";
-
-            document.getElementById(
-                'info-vel'
-            ).innerText =
-            vel + " km/h";
-
-            document.getElementById(
-                'info-precisao'
-            ).innerText =
-            dados.acuracia + "m";
-
-            map.panTo(pos);
+            marcadorVeiculo
+            .setLatLng(pos);
         }
+
+        marcadorVeiculo.bindPopup(`
+
+        🚗 <b>${idVeiculo}</b><br>
+
+        📍 ${
+            dados.endereco?.local ||
+
+            dados.endereco?.rua ||
+
+            "-"
+        }<br>
+
+        🏘️ ${
+            dados.endereco?.bairro ||
+
+            "-"
+        }<br>
+
+        🏙️ ${
+            dados.endereco?.cidade ||
+
+            "-"
+        }<br>
+
+        🚗 ${
+            dados.velocidade || 0
+        } km/h
+
+        `);
+
+        document.getElementById(
+            'info-conexao'
+        ).innerText = "Online";
+
+        document.getElementById(
+            'info-conexao'
+        ).className = "badge";
+
+        document.getElementById(
+            'info-hora'
+        ).innerText =
+        dados.hora || "-";
+
+        document.getElementById(
+            'info-vel'
+        ).innerText =
+        (dados.velocidade || 0)
+        + " km/h";
+
+        document.getElementById(
+            'info-precisao'
+        ).innerText =
+        dados.acuracia + "m";
+
+        map.panTo(pos);
     });
 
     const historicoRef =
     query(
-
         ref(
             db,
             `veiculos/${idVeiculo}/historico`
         ),
-
-        limitToLast(120)
+        limitToLast(2000)
     );
 
     onValue(historicoRef,
@@ -604,130 +524,133 @@ function monitorarVeiculo(idVeiculo){
         const dados =
         snapshot.val();
 
-        if(dados){
+        if(!dados) return;
 
-            const listaPontos =
-            Object.values(dados)
+        const agora = Date.now();
 
-            .sort((a,b)=>
+        let listaPontos =
 
-                a.timestamp -
-                b.timestamp
-            );
+        Object.values(dados)
 
-            // filtro anti-pulo
-            const pontosFiltrados = [];
+        .filter(p =>
 
-            for(
-                let i=0;
-                i<listaPontos.length;
-                i++
-            ){
+            agora - p.timestamp
+            <= 86400000
+        )
 
-                const atual =
-                listaPontos[i];
+        .sort((a,b)=>
 
-                const anterior =
-                listaPontos[i-1];
+            a.timestamp -
+            b.timestamp
+        );
 
-                if(!anterior){
+        const pontosFiltrados = [];
 
-                    pontosFiltrados
-                    .push(atual);
+        for(
+            let i=0;
+            i<listaPontos.length;
+            i++
+        ){
 
-                    continue;
-                }
+            const atual =
+            listaPontos[i];
 
-                const distancia =
-                distanciaMetros(
+            const anterior =
+            listaPontos[i-1];
 
-                    anterior.lat,
-                    anterior.lon,
+            if(!anterior){
 
-                    atual.lat,
-                    atual.lon
-                );
-
-                if(distancia < 300){
-
-                    pontosFiltrados
-                    .push(atual);
-                }
+                pontosFiltrados.push(atual);
+                continue;
             }
 
-            await desenharRotaReal(
-                pontosFiltrados
+            const distancia =
+            distanciaMetros(
+
+                anterior.lat,
+                anterior.lon,
+
+                atual.lat,
+                atual.lon
             );
 
-            const ultimos10 =
-            [...listaPontos]
+            if(
+                distancia < 120
+            ){
 
-            .reverse()
-
-            .slice(0,10);
-
-            const tabela =
-            document.getElementById(
-                'tabela-admin-corpo'
-            );
-
-            tabela.innerHTML =
-            ultimos10.map(p=>`
-
-                <tr>
-
-                    <td>
-                        ${p.hora || "-"}
-                    </td>
-
-                    <td>
-
-                        <b>
-
-                        📍 ${
-                            p.endereco?.local ||
-
-                            p.endereco?.rua ||
-
-                            "Local desconhecido"
-                        }
-
-                        </b>
-
-                        <br>
-
-                        <small>
-
-                        🏙️ ${
-                            p.endereco?.bairro ||
-                            ""
-                        }
-
-                        - ${
-                            p.endereco?.cidade ||
-                            ""
-                        }
-
-                        </small>
-
-                    </td>
-
-                    <td
-                    style="
-                    color:#00d5ff;
-                    font-weight:bold;
-                    ">
-
-                    ${
-                        p.velocidade || 0
-                    } km/h
-
-                    </td>
-
-                </tr>
-
-            `).join('');
+                pontosFiltrados.push(atual);
+            }
         }
+
+        await desenharRotaReal(
+            pontosFiltrados
+        );
+
+        const ultimos10 =
+        [...listaPontos]
+
+        .reverse()
+
+        .slice(0,10);
+
+        const tabela =
+        document.getElementById(
+            'tabela-admin-corpo'
+        );
+
+        tabela.innerHTML =
+        ultimos10.map(p=>`
+
+        <tr>
+
+        <td>
+
+        ${p.hora || "-"}
+
+        </td>
+
+        <td>
+
+        <b>
+
+        📍 ${
+            p.endereco?.local ||
+
+            p.endereco?.rua ||
+
+            "Local desconhecido"
+        }
+
+        </b>
+
+        <br>
+
+        🏘️ ${
+            p.endereco?.bairro || ""
+        }
+
+        <br>
+
+        🏙️ ${
+            p.endereco?.cidade || ""
+        }
+
+        </td>
+
+        <td style="
+        color:#00d5ff;
+        font-weight:bold;
+        ">
+
+        ${
+            p.velocidade || 0
+        } km/h
+
+        </td>
+
+        </tr>
+
+        `).join('');
     });
 }
 
@@ -747,5 +670,4 @@ window.addEventListener(
 </script>
 
 </body>
-
 </html>
