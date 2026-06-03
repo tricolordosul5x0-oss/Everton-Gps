@@ -4,9 +4,7 @@
 <head>
 
 <meta charset="UTF-8">
-
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Everton GPS PRO</title>
 
@@ -331,6 +329,12 @@ async function desenharRotaReal(){
 
             fitSelectedRoutes:false,
 
+            routeWhileDragging:false,
+
+            showAlternatives:false,
+
+            useZoomParameter:true,
+
             show:false,
 
             createMarker:()=>null,
@@ -406,6 +410,15 @@ async function buscarEndereco(lat, lon){
             dados.address.state || "",
 
             local:
+
+            dados.address.shop ||
+
+            dados.address.amenity ||
+
+            dados.address.tourism ||
+
+            dados.address.building ||
+
             dados.name ||
 
             dados.display_name ||
@@ -446,7 +459,6 @@ async function enviarDadosParaFirebase(dados){
             'veiculoID'
         ).value || "VEICULO-01";
 
-        // ignora GPS ruim
         const ultimo =
         historicoRota[
             historicoRota.length-1
@@ -464,8 +476,8 @@ async function enviarDadosParaFirebase(dados){
                 dados.lon
             );
 
-            // ignora salto impossível
-            if(distancia > 300){
+            // ignora salto GPS
+            if(distancia > 80){
 
                 return;
             }
@@ -500,20 +512,18 @@ async function enviarDadosParaFirebase(dados){
             dados
         );
 
-        // rota local
         historicoRota.push({
 
             lat:dados.lat,
             lon:dados.lon
         });
 
-        // mantém últimos 30
-        if(historicoRota.length > 30){
+        // mantém últimos 120 pontos
+        if(historicoRota.length > 120){
 
             historicoRota.shift();
         }
 
-        // desenha rota real
         await desenharRotaReal();
 
         const pos = [
@@ -575,16 +585,16 @@ async(pos)=>{
 
     const agora = Date.now();
 
-    // evita spam
+    // envia mais rápido
     if(
         agora - ultimoEnvio
-        < 5000
+        < 3000
     ) return;
 
     ultimoEnvio = agora;
 
     // ignora GPS ruim
-    if(pos.coords.accuracy > 40)
+    if(pos.coords.accuracy > 15)
         return;
 
     const dadosGPS = {
