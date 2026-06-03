@@ -6,7 +6,7 @@
 <meta charset="UTF-8">
 
 <meta name="viewport"
-      content="width=device-width, initial-scale=1.0">
+content="width=device-width, initial-scale=1.0">
 
 <title>Everton GPS - Transmissor</title>
 
@@ -96,9 +96,9 @@ button{
 
 <header>
 
-    <h2 style="margin:0">
-        🛰️ Everton GPS - Transmissor
-    </h2>
+<h2 style="margin:0">
+🛰️ Everton GPS - Transmissor
+</h2>
 
 </header>
 
@@ -106,32 +106,32 @@ button{
 
 <div class="controls">
 
-    <input
-        type="text"
-        id="veiculoID"
-        value="VEICULO-01"
-        placeholder="ID do veículo">
+<input
+type="text"
+id="veiculoID"
+value="VEICULO-01"
+placeholder="ID do veículo">
 
-    <button onclick="window.forcarEnvioTeste()">
+<button onclick="window.forcarEnvioTeste()">
 
-        FORÇAR TESTE
+FORÇAR TESTE
 
-    </button>
+</button>
 
-    <div class="status-box">
+<div class="status-box">
 
-        <strong>Status:</strong>
+<strong>Status:</strong>
 
-        <div id="statusText">
+<div id="statusText">
 
-            Inicializando...
+Inicializando...
 
-        </div>
+</div>
 
-    </div>
+</div>
 
-    <div id="errorLog"
-         class="error-log"></div>
+<div id="errorLog"
+class="error-log"></div>
 
 </div>
 
@@ -182,14 +182,10 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 const statusText =
-    document.getElementById(
-        'statusText'
-    );
+document.getElementById('statusText');
 
 const errorLog =
-    document.getElementById(
-        'errorLog'
-    );
+document.getElementById('errorLog');
 
 function mostrarErro(origem,mensagem){
 
@@ -202,7 +198,7 @@ function mostrarErro(origem,mensagem){
     console.error(origem,mensagem);
 }
 
-// MAPA
+// ================= MAPA =================
 
 let map;
 let marcador;
@@ -235,96 +231,53 @@ function initMap(){
 
 initMap();
 
-// CACHE ENDEREÇO
-let ultimoEndereco = null;
-let ultimaConsulta = 0;
+// ========= API ENDEREÇO =========
 
-async function buscarEndereco(lat,lon){
-
-    // evita spam
-    const agora = Date.now();
-
-    if(
-        ultimoEndereco &&
-        (agora - ultimaConsulta < 5000)
-    ){
-        return ultimoEndereco;
-    }
+async function buscarEndereco(lat, lon){
 
     try{
 
         const url =
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`;
 
         const resposta =
-            await fetch(url,{
-                headers:{
-                    'User-Agent':
-                    'EvertonGPS/1.0'
-                }
-            });
+            await fetch(url);
 
         const dados =
             await resposta.json();
 
-        const endereco = {
+        return {
 
             rua:
-                dados.address?.road ||
-                "",
+                dados.locality || "",
 
             bairro:
-                dados.address?.suburb ||
-                dados.address?.neighbourhood ||
-                "",
+                dados.localityInfo
+                ?.administrative?.[2]
+                ?.name || "",
 
             cidade:
-                dados.address?.city ||
-                dados.address?.town ||
-                dados.address?.village ||
-                "",
+                dados.city ||
+                dados.locality || "",
 
             estado:
-                dados.address?.state ||
-                "",
+                dados.principalSubdivision || "",
 
             pais:
-                dados.address?.country ||
-                "",
+                dados.countryName || "",
 
-            cep:
-                dados.address?.postcode ||
-                "",
-
-            // NOME DO LOCAL
             local:
-
-                dados.name ||
-
-                dados.address?.shop ||
-
-                dados.address?.tourism ||
-
-                dados.address?.amenity ||
-
-                dados.address?.building ||
-
-                "",
+                dados.locality ||
+                dados.city || "",
 
             completo:
-                dados.display_name || ""
+                dados.locality || ""
         };
-
-        ultimoEndereco = endereco;
-
-        ultimaConsulta = agora;
-
-        return endereco;
 
     }catch(e){
 
         mostrarErro(
-            "Nominatim",
+            "Localização",
             e.message
         );
 
@@ -340,34 +293,29 @@ async function buscarEndereco(lat,lon){
     }
 }
 
+// ========= ENVIO FIREBASE =========
+
 async function enviarDadosParaFirebase(dados){
 
     try{
 
         const vID =
-            document.getElementById(
-                'veiculoID'
-            ).value || "VEICULO-01";
+        document.getElementById(
+            'veiculoID'
+        ).value || "VEICULO-01";
 
         statusText.innerHTML =
-            "📡 Obtendo endereço...";
+        "📡 Buscando endereço...";
 
-        // endereço real
         const endereco =
-            await buscarEndereco(
-                dados.lat,
-                dados.lon
-            );
+        await buscarEndereco(
+            dados.lat,
+            dados.lon
+        );
 
         dados.endereco = endereco;
 
-        statusText.innerHTML = `
-            📍 ${endereco.local || endereco.rua}<br>
-            🏙️ ${endereco.bairro}<br>
-            🚗 ${dados.velocidade} km/h
-        `;
-
-        // posição atual
+        // SALVA ATUAL
         await set(
             ref(
                 db,
@@ -376,7 +324,7 @@ async function enviarDadosParaFirebase(dados){
             dados
         );
 
-        // histórico
+        // SALVA HISTÓRICO
         await push(
             ref(
                 db,
@@ -385,7 +333,7 @@ async function enviarDadosParaFirebase(dados){
             dados
         );
 
-        // mapa
+        // MAPA
         const pos = [
             dados.lat,
             dados.lon
@@ -393,30 +341,36 @@ async function enviarDadosParaFirebase(dados){
 
         marcador.setLatLng(pos);
 
+        rota.addLatLng(pos);
+
+        map.panTo(pos);
+
         marcador.bindPopup(`
 
             <b>${vID}</b><br>
 
-            📍 ${
-                endereco.local ||
-                endereco.rua
-            }<br>
+            📍 ${endereco.local}<br>
 
-            🏙️ ${
-                endereco.bairro
-            } - ${
-                endereco.cidade
-            }<br>
+            🏙️ ${endereco.cidade}<br>
 
-            🚗 ${
-                dados.velocidade
-            } km/h
+            🚗 ${dados.velocidade} km/h
 
         `);
 
-        rota.addLatLng(pos);
+        statusText.innerHTML = `
 
-        map.panTo(pos);
+            ✅ Transmitindo<br><br>
+
+            📍 ${endereco.local}<br>
+
+            🏙️ ${endereco.cidade}<br>
+
+            🚗 ${dados.velocidade} km/h<br>
+
+            🎯 Precisão:
+            ${dados.acuracia}m
+
+        `;
 
     }catch(e){
 
@@ -427,78 +381,89 @@ async function enviarDadosParaFirebase(dados){
     }
 }
 
-// GPS REAL
+// ========= GPS REAL =========
+
+let ultimoEnvio = 0;
+
 if(navigator.geolocation){
 
-    navigator.geolocation.watchPosition(
+navigator.geolocation.watchPosition(
 
-        async(pos)=>{
+async(pos)=>{
 
-            const dadosGPS = {
+    // evita spam
+    const agora = Date.now();
 
-                lat:
-                    pos.coords.latitude,
+    if(agora - ultimoEnvio < 5000)
+        return;
 
-                lon:
-                    pos.coords.longitude,
+    ultimoEnvio = agora;
 
-                hora:
-                    new Date()
-                    .toLocaleTimeString(),
+    const dadosGPS = {
 
-                timestamp:
-                    Date.now(),
+        lat:
+            pos.coords.latitude,
 
-                acuracia:
-                    pos.coords.accuracy
-                    .toFixed(1),
+        lon:
+            pos.coords.longitude,
 
-                velocidade:
+        hora:
+            new Date()
+            .toLocaleTimeString(),
 
-                    pos.coords.speed ?
+        timestamp:
+            Date.now(),
 
-                    (
-                        pos.coords.speed * 3.6
-                    ).toFixed(0)
+        acuracia:
+            Number(
+                pos.coords.accuracy
+            ).toFixed(1),
 
-                    : 0
-            };
+        velocidade:
 
-            await enviarDadosParaFirebase(
-                dadosGPS
-            );
+            pos.coords.speed ?
 
-        },
+            (
+                pos.coords.speed * 3.6
+            ).toFixed(0)
 
-        (err)=>{
+            : 0
+    };
 
-            mostrarErro(
-                "GPS",
-                err.message
-            );
-
-            statusText.innerHTML =
-                "❌ GPS falhou";
-        },
-
-        {
-            enableHighAccuracy:true,
-
-            maximumAge:0,
-
-            timeout:10000
-        }
+    await enviarDadosParaFirebase(
+        dadosGPS
     );
 
-}else{
+},
+
+(err)=>{
 
     mostrarErro(
         "GPS",
-        "Geolocalização não suportada"
+        err.message
     );
+
+},
+
+{
+    enableHighAccuracy:true,
+
+    maximumAge:0,
+
+    timeout:15000
+});
+
+}else{
+
+mostrarErro(
+    "GPS",
+    "Geolocalização não suportada"
+);
+
 }
 
-// TESTE
+// ========= TESTE =========
+
 window.forcarEnvioTeste =
 async function(){
 
