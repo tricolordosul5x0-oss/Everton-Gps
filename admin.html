@@ -8,7 +8,7 @@
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>Everton GPS - Painel Admin</title>
+<title>Everton GPS PRO</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -19,9 +19,9 @@ href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-mach
 <style>
 
 :root{
-    --primary:#00bcd4;
+    --primary:#00d5ff;
     --bg:#121212;
-    --card:#1e1e1e;
+    --card:#1d1d1d;
 }
 
 body{
@@ -54,7 +54,6 @@ header{
 
 #map{
     flex-grow:1;
-    width:100%;
 }
 
 .painel{
@@ -70,7 +69,7 @@ header{
 
     gap:15px;
 
-    height:300px;
+    height:320px;
 
     overflow:auto;
 }
@@ -79,9 +78,9 @@ header{
 
     background:#252525;
 
-    padding:15px;
-
     border-radius:10px;
+
+    padding:15px;
 }
 
 .info{
@@ -95,15 +94,13 @@ header{
     border-bottom:1px solid #333;
 
     padding-bottom:5px;
-
-    font-size:.9em;
 }
 
 .badge{
 
     background:#4caf50;
 
-    padding:3px 10px;
+    padding:4px 12px;
 
     border-radius:20px;
 }
@@ -141,7 +138,6 @@ th{
 }
 
 .leaflet-routing-container{
-
     display:none !important;
 }
 
@@ -164,7 +160,7 @@ th{
 <header>
 
 <div class="logo">
-🖥️ Everton GPS - Admin
+🛰️ Everton GPS PRO
 </div>
 
 <select id="seletorVeiculo"
@@ -190,15 +186,13 @@ VEICULO-01
 
 <div class="card">
 
-<h3 style="margin-top:0;color:#00bcd4">
-Status
+<h3 style="margin-top:0;color:#00d5ff">
+Status do Veículo
 </h3>
 
 <div class="info">
 <span>Veículo:</span>
-<span id="info-id">
-VEICULO-01
-</span>
+<span id="info-id">-</span>
 </div>
 
 <div class="info">
@@ -224,7 +218,7 @@ Offline
 </div>
 
 <div class="info">
-<span>Última atualização:</span>
+<span>Atualização:</span>
 <span id="info-hora">
 -
 </span>
@@ -240,7 +234,7 @@ Offline
 
 <tr>
 
-<th>Horário</th>
+<th>Hora</th>
 
 <th>Local</th>
 
@@ -312,10 +306,7 @@ const firebaseConfig = {
     "688936933095",
 
     appId:
-    "1:688936933095:web:5508a8e1008f1b4020a1db",
-
-    measurementId:
-    "G-X14EWTZN18"
+    "1:688936933095:web:5508a8e1008f1b4020a1db"
 };
 
 const app =
@@ -327,6 +318,16 @@ getDatabase(app);
 let map;
 let marcadorVeiculo;
 let controleRota;
+
+const carroIcone = L.icon({
+
+    iconUrl:
+    'https://cdn-icons-png.flaticon.com/512/744/744465.png',
+
+    iconSize:[40,40],
+
+    iconAnchor:[20,20]
+});
 
 function initMap(){
 
@@ -344,6 +345,65 @@ function initMap(){
 }
 
 initMap();
+
+function calcularAngulo(
+lat1,lon1,
+lat2,lon2){
+
+    const dy = lat2-lat1;
+
+    const dx = lon2-lon1;
+
+    return Math.atan2(
+        dy,
+        dx
+    ) * 180 / Math.PI;
+}
+
+function distanciaMetros(
+lat1,lon1,
+lat2,lon2){
+
+    const R = 6371e3;
+
+    const φ1 =
+    lat1 * Math.PI/180;
+
+    const φ2 =
+    lat2 * Math.PI/180;
+
+    const Δφ =
+    (lat2-lat1) *
+    Math.PI/180;
+
+    const Δλ =
+    (lon2-lon1) *
+    Math.PI/180;
+
+    const a =
+
+    Math.sin(Δφ/2) *
+    Math.sin(Δφ/2)
+
+    +
+
+    Math.cos(φ1) *
+    Math.cos(φ2)
+
+    *
+
+    Math.sin(Δλ/2) *
+    Math.sin(Δλ/2);
+
+    const c =
+
+    2 * Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1-a)
+    );
+
+    return R*c;
+}
 
 async function desenharRotaReal(listaPontos){
 
@@ -381,9 +441,9 @@ async function desenharRotaReal(listaPontos){
 
             draggableWaypoints:false,
 
-            fitSelectedRoutes:true,
-
             routeWhileDragging:false,
+
+            fitSelectedRoutes:true,
 
             show:false,
 
@@ -393,11 +453,11 @@ async function desenharRotaReal(listaPontos){
 
                 styles:[{
 
-                    color:'#00bcd4',
+                    color:'#00d5ff',
 
-                    opacity:0.9,
+                    weight:5,
 
-                    weight:5
+                    opacity:0.9
                 }]
             }
 
@@ -405,7 +465,10 @@ async function desenharRotaReal(listaPontos){
 
     }catch(e){
 
-        console.log(e);
+        console.log(
+            "Erro rota:",
+            e
+        );
     }
 }
 
@@ -421,7 +484,8 @@ function monitorarVeiculo(idVeiculo){
         `veiculos/${idVeiculo}/atual`
     );
 
-    onValue(atualRef,(snapshot)=>{
+    onValue(atualRef,
+    (snapshot)=>{
 
         const dados =
         snapshot.val();
@@ -439,28 +503,56 @@ function monitorarVeiculo(idVeiculo){
             if(!marcadorVeiculo){
 
                 marcadorVeiculo =
-                L.marker(pos)
-                .addTo(map);
+                L.marker(pos,{
+
+                    icon:carroIcone
+
+                }).addTo(map);
 
             }else{
+
+                const atual =
+                marcadorVeiculo
+                .getLatLng();
+
+                const angulo =
+                calcularAngulo(
+
+                    atual.lat,
+                    atual.lng,
+
+                    dados.lat,
+                    dados.lon
+                );
+
+                marcadorVeiculo
+                .setRotationAngle?.(
+                    angulo
+                );
 
                 marcadorVeiculo
                 .setLatLng(pos);
             }
 
-            marcadorVeiculo
-            .bindPopup(`
+            marcadorVeiculo.bindPopup(`
 
                 <b>${idVeiculo}</b><br>
 
                 📍 ${
                     dados.endereco?.local ||
+
                     dados.endereco?.rua ||
+
                     "-"
                 }<br>
 
                 🏙️ ${
+                    dados.endereco?.bairro ||
+
+                    "-"
+                } - ${
                     dados.endereco?.cidade ||
+
                     "-"
                 }<br>
 
@@ -497,11 +589,13 @@ function monitorarVeiculo(idVeiculo){
 
     const historicoRef =
     query(
+
         ref(
             db,
             `veiculos/${idVeiculo}/historico`
         ),
-        limitToLast(100)
+
+        limitToLast(120)
     );
 
     onValue(historicoRef,
@@ -521,12 +615,50 @@ function monitorarVeiculo(idVeiculo){
                 b.timestamp
             );
 
-            // rota real
+            // filtro anti-pulo
+            const pontosFiltrados = [];
+
+            for(
+                let i=0;
+                i<listaPontos.length;
+                i++
+            ){
+
+                const atual =
+                listaPontos[i];
+
+                const anterior =
+                listaPontos[i-1];
+
+                if(!anterior){
+
+                    pontosFiltrados
+                    .push(atual);
+
+                    continue;
+                }
+
+                const distancia =
+                distanciaMetros(
+
+                    anterior.lat,
+                    anterior.lon,
+
+                    atual.lat,
+                    atual.lon
+                );
+
+                if(distancia < 300){
+
+                    pontosFiltrados
+                    .push(atual);
+                }
+            }
+
             await desenharRotaReal(
-                listaPontos
+                pontosFiltrados
             );
 
-            // últimos 10 locais
             const ultimos10 =
             [...listaPontos]
 
@@ -582,7 +714,7 @@ function monitorarVeiculo(idVeiculo){
 
                     <td
                     style="
-                    color:#00bcd4;
+                    color:#00d5ff;
                     font-weight:bold;
                     ">
 
