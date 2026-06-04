@@ -11,9 +11,6 @@
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
-<link rel="stylesheet"
-href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"/>
-
 <style>
 
 :root{
@@ -106,8 +103,8 @@ th{
     top:0;
 }
 
-.leaflet-routing-container{
-    display:none !important;
+.popup-info{
+    line-height:1.7;
 }
 
 @media(max-width:700px){
@@ -236,8 +233,6 @@ Aguardando dados...
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-
 <script type="module">
 
 import { initializeApp }
@@ -282,12 +277,13 @@ const db = getDatabase(app);
 
 let map;
 let marcadorVeiculo;
-let controleRota;
+let linhaPercurso;
+let ultimaRota = [];
 
 const carroIcone = L.icon({
 
     iconUrl:
-    'https://cdn-icons-png.flaticon.com/512/3202/3202926.png',
+    'https://cdn-icons-png.flaticon.com/512/744/744465.png',
 
     iconSize:[42,42],
 
@@ -351,66 +347,92 @@ lat2,lon2){
     return R*c;
 }
 
-async function desenharRotaReal(listaPontos){
+async function desenharLinhaTempoReal(listaPontos){
+
+    if(listaPontos.length < 2)
+        return;
 
     try{
 
-        if(listaPontos.length < 2)
-            return;
+        const pontosReduzidos =
+        listaPontos.filter((_,i)=>
 
-        if(controleRota){
+            i % 5 === 0 ||
 
-            map.removeControl(controleRota);
-        }
-
-        const pontos =
-        listaPontos.map(p=>
-
-            L.latLng(
-                p.lat,
-                p.lon
-            )
+            i === listaPontos.length-1
         );
 
-        controleRota =
-        L.Routing.control({
+        const coordenadas =
+        pontosReduzidos.map(p=>
 
-            waypoints:pontos,
+            `${p.lon},${p.lat}`
+        ).join(';');
 
-            addWaypoints:false,
+        const url =
 
-            draggableWaypoints:false,
+        `https://router.project-osrm.org/route/v1/driving/${coordenadas}?overview=full&geometries=geojson`;
 
-            fitSelectedRoutes:false,
+        const resposta =
+        await fetch(url);
 
-            show:false,
+        const dados =
+        await resposta.json();
 
-            createMarker:()=>null,
+        if(
+            !dados.routes ||
+            !dados.routes.length
+        ) return;
 
-            lineOptions:{
+        const rota =
+        dados.routes[0]
+        .geometry.coordinates;
 
-                styles:[{
+        const latlngs =
+        rota.map(c=>[
+            c[1],
+            c[0]
+        ]);
 
-                    color:'#00ff88',
+        ultimaRota = latlngs;
 
-                    weight:6,
+        if(linhaPercurso){
 
-                    opacity:0.9
-                }]
-            },
+            linhaPercurso.setLatLngs(
+                latlngs
+            );
 
-            router:
-            L.Routing.osrmv1({
+        }else{
 
-                serviceUrl:
-                'https://router.project-osrm.org/route/v1'
-            })
+            linhaPercurso =
+            L.polyline(latlngs,{
 
-        }).addTo(map);
+                color:'#00ff00',
+
+                weight:6,
+
+                opacity:1,
+
+                smoothFactor:1
+
+            }).addTo(map);
+        }
 
     }catch(e){
 
-        console.log(e);
+        console.log(
+            "Erro rota:",
+            e
+        );
+
+        if(
+            ultimaRota.length &&
+            linhaPercurso
+        ){
+
+            linhaPercurso.setLatLngs(
+                ultimaRota
+            );
+        }
     }
 }
 
@@ -454,31 +476,39 @@ function monitorarVeiculo(idVeiculo){
 
         marcadorVeiculo.bindPopup(`
 
-        🚗 <b>${idVeiculo}</b><br>
+        <div class="popup-info">
 
-        📍 ${
-            dados.endereco?.local ||
+        🚗 <b>${idVeiculo}</b><br><br>
 
+        📍 <b>Rua:</b>
+        ${
             dados.endereco?.rua ||
-
-            "-"
+            "Não identificada"
         }<br>
 
-        🏘️ ${
+        🏘️ <b>Bairro:</b>
+        ${
             dados.endereco?.bairro ||
-
             "-"
         }<br>
 
-        🏙️ ${
+        🏙️ <b>Cidade:</b>
+        ${
             dados.endereco?.cidade ||
-
             "-"
-        }<br>
+        }<br><br>
 
-        🚗 ${
+        🚗 <b>Velocidade:</b>
+        ${
             dados.velocidade || 0
-        } km/h
+        } km/h<br>
+
+        🛰️ <b>Precisão:</b>
+        ${
+            dados.acuracia || "-"
+        }m
+
+        </div>
 
         `);
 
@@ -506,7 +536,9 @@ function monitorarVeiculo(idVeiculo){
         ).innerText =
         dados.acuracia + "m";
 
-        map.panTo(pos);
+        map.flyTo(pos, 17, {
+            duration:1.5
+        });
     });
 
     const historicoRef =
@@ -582,7 +614,7 @@ function monitorarVeiculo(idVeiculo){
             }
         }
 
-        await desenharRotaReal(
+        await desenharLinhaTempoReal(
             pontosFiltrados
         );
 
@@ -614,9 +646,9 @@ function monitorarVeiculo(idVeiculo){
         <b>
 
         📍 ${
-            p.endereco?.local ||
-
             p.endereco?.rua ||
+
+            p.endereco?.local ||
 
             "Local desconhecido"
         }
