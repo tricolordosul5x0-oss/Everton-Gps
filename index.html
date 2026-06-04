@@ -77,10 +77,10 @@ button{
 .status-box{
     background:#252525;
     padding:15px;
-    border-radius:10px;
+    border-radius:8px;
     border:1px solid #333;
-    line-height:1.7;
-    font-size:1.05em;
+    line-height:1.8;
+    font-size:1em;
 }
 
 .error-log{
@@ -122,7 +122,7 @@ id="veiculoID"
 value="VEICULO-01"
 placeholder="ID do veículo">
 
-<button onclick="window.forcarEnvioTeste()">
+<button onclick="window.atualizarLocalizacao()">
 
 ATUALIZAR LOCALIZAÇÃO
 
@@ -162,6 +162,7 @@ import {
 }
 from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+// FIREBASE REAL
 const firebaseConfig = {
 
     apiKey:
@@ -227,9 +228,9 @@ const carroIcone = L.icon({
     iconUrl:
     'https://cdn-icons-png.flaticon.com/512/744/744465.png',
 
-    iconSize:[42,42],
+    iconSize:[40,40],
 
-    iconAnchor:[21,21]
+    iconAnchor:[20,20]
 });
 
 function initMap(){
@@ -239,13 +240,13 @@ function initMap(){
         18
     );
 
+    // MAPA SEM BLOQUEIO
     L.tileLayer(
-        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        {
-            attribution:'© OpenStreetMap',
-            maxZoom:22
-        }
-    ).addTo(map);
+    'https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png',
+    {
+        attribution:'© OpenStreetMap',
+        maxZoom:20
+    }).addTo(map);
 
     marcador = L.marker(
         [-23.5505,-46.6333],
@@ -335,8 +336,6 @@ async function desenharRotaReal(){
 
             fitSelectedRoutes:false,
 
-            routeWhileDragging:false,
-
             show:false,
 
             createMarker:()=>null,
@@ -380,7 +379,7 @@ async function buscarEndereco(lat, lon){
         const resposta =
         await fetch(
 
-`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
 
         );
 
@@ -469,8 +468,7 @@ async function enviarDadosParaFirebase(dados){
                 dados.lon
             );
 
-            // ignora saltos falsos
-            if(distancia > 200){
+            if(distancia > 500){
 
                 return;
             }
@@ -487,7 +485,6 @@ async function enviarDadosParaFirebase(dados){
 
         dados.endereco = endereco;
 
-        // salva posição atual
         await set(
             ref(
                 db,
@@ -496,7 +493,6 @@ async function enviarDadosParaFirebase(dados){
             dados
         );
 
-        // salva histórico
         await push(
             ref(
                 db,
@@ -511,8 +507,7 @@ async function enviarDadosParaFirebase(dados){
             lon:dados.lon
         });
 
-        // mantém últimas 24h
-        if(historicoRota.length > 150){
+        if(historicoRota.length > 50){
 
             historicoRota.shift();
         }
@@ -526,7 +521,8 @@ async function enviarDadosParaFirebase(dados){
 
         marcador.setLatLng(pos);
 
-        map.setView(pos,18);
+        // CENTRALIZA COM ZOOM
+        map.flyTo(pos, 19);
 
         marcador.bindPopup(`
 
@@ -570,27 +566,20 @@ async function enviarDadosParaFirebase(dados){
 
 // ================= GPS REAL =================
 
-let ultimoEnvio = 0;
+window.atualizarLocalizacao =
+function(){
 
-if(navigator.geolocation){
-
-navigator.geolocation.watchPosition(
+navigator.geolocation.getCurrentPosition(
 
 async(pos)=>{
 
-    const agora = Date.now();
+    if(pos.coords.accuracy > 30){
 
-    // evita spam
-    if(
-        agora - ultimoEnvio
-        < 4000
-    ) return;
+        statusText.innerHTML =
+        "⚠️ GPS fraco. Aguarde sinal melhor.";
 
-    ultimoEnvio = agora;
-
-    // ignora GPS ruim
-    if(pos.coords.accuracy > 15)
         return;
+    }
 
     const dadosGPS = {
 
@@ -640,83 +629,21 @@ async(pos)=>{
 
 {
     enableHighAccuracy:true,
-
-    maximumAge:0,
-
-    timeout:15000
-});
-
-}else{
-
-mostrarErro(
-    "GPS",
-    "Geolocalização não suportada"
-);
-
-}
-
-// ================= BOTÃO REAL =================
-
-window.forcarEnvioTeste =
-async function(){
-
-navigator.geolocation.getCurrentPosition(
-
-async(pos)=>{
-
-    const dadosGPS = {
-
-        lat:
-        pos.coords.latitude,
-
-        lon:
-        pos.coords.longitude,
-
-        hora:
-        new Date()
-        .toLocaleTimeString(),
-
-        timestamp:
-        Date.now(),
-
-        acuracia:
-        Number(
-            pos.coords.accuracy
-        ).toFixed(1),
-
-        velocidade:
-
-        pos.coords.speed ?
-
-        (
-            pos.coords.speed * 3.6
-        ).toFixed(0)
-
-        : 0
-    };
-
-    await enviarDadosParaFirebase(
-        dadosGPS
-    );
-
-},
-
-(err)=>{
-
-    mostrarErro(
-        "GPS TESTE",
-        err.message
-    );
-
-},
-
-{
-    enableHighAccuracy:true,
-    timeout:15000,
-    maximumAge:0
+    maximumAge:1000,
+    timeout:30000
 });
 
 };
+
+// atualiza automático
+setInterval(()=>{
+
+    atualizarLocalizacao();
+
+},5000);
+
+// inicia
+window.atualizarLocalizacao();
 
 </script>
 
