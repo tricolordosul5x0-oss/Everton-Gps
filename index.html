@@ -93,7 +93,7 @@
             height: 320px;
             width: 100%;
             border-radius: 10px;
-            background: #252525;
+            background: #1e1e1e;
         }
 
         .map-wrapper {
@@ -342,7 +342,7 @@
         let map, marcador;
         let historicoRota = [];
         let totalRegistros = 0;
-        let linhaRota = null; // Linha nativa simplificada para não travar o Leaflet
+        let linhaRota = null;
 
         const carroIcone = L.icon({
             iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png',
@@ -351,13 +351,13 @@
         });
 
         function initMap() {
-            // Inicializa centralizado no Brasil padrão antes de obter o GPS real
             map = L.map('map').setView([-23.5505, -46.6333], 16);
             
-            // Servidor estável do OpenStreetMap padrão
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap',
-                maxZoom: 19
+            // Servidor CARTO (Dark Matter) - Não bloqueia requisições e tem visual Dark incrível
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© CartoDB © OpenStreetMap',
+                subdomains: 'abcd',
+                maxZoom: 20
             }).addTo(map);
 
             marcador = L.marker([-23.5505, -46.6333], { icon: carroIcone }).addTo(map);
@@ -381,19 +381,18 @@
                     cidade: dados.address.city || ""
                 };
             } catch {
-                return { rua: "Posição registrada", bairro: "", city: "" };
+                return { rua: "Posição capturada", bairro: "", cidade: "" };
             }
         }
 
         async function enviarDadosParaFirebase(dados) {
             try {
                 const vID = document.getElementById('veiculoID').value || "VEICULO-01";
-                statusText.innerHTML = "📡 Buscando endereço de transmissão...";
+                statusText.innerHTML = "📡 Buscando endereço...";
 
                 const endereco = await buscarEndereco(dados.lat, dados.lon);
                 dados.endereco = endereco;
 
-                // Envia dados para o Realtime Database
                 await set(ref(db, `veiculos/${vID}/atual`), dados);
                 await push(ref(db, `veiculos/${vID}/historico`), dados);
 
@@ -401,19 +400,16 @@
                 historicoRota.push(pos);
                 if (historicoRota.length > 50) historicoRota.shift();
 
-                // Atualiza marcador e mapa
                 marcador.setLatLng(pos);
                 map.flyTo(pos, 17);
 
-                // Desenha rastro da rota de forma limpa
                 if (linhaRota) map.removeLayer(linhaRota);
                 linhaRota = L.polyline(historicoRota, { color: '#00ff88', weight: 5, opacity: 0.8 }).addTo(map);
 
                 marcador.bindPopup(`<b>${vID}</b><br>📍 ${endereco.rua}<br>🚗 ${dados.velocidade} km/h`).openPopup();
 
-                statusText.innerHTML = `✅ Transmitindo com Sucesso!<br>📍 ${endereco.rua}<br>🚗 ${dados.velocidade} km/h | 🎯 Precisão: ${dados.acuracia}m`;
+                statusText.innerHTML = `✅ Transmitindo Prontamente!<br>📍 ${endereco.rua}<br>🚗 ${dados.velocidade} km/h | 🎯 Precisão: ${dados.acuracia}m`;
 
-                // Atualiza interface do painel
                 totalRegistros++;
                 document.getElementById('metricsGrid').style.display = 'grid';
                 document.getElementById('mv-vel').textContent = dados.velocidade;
@@ -440,7 +436,6 @@
             const btn = document.getElementById('btnAtualizar');
             if (btn) btn.classList.add('loading');
 
-            // Configurações suavizadas para mobile (evita o erro 'Timeout expired')
             navigator.geolocation.getCurrentPosition(
                 async (pos) => {
                     if (btn) btn.classList.remove('loading');
@@ -458,13 +453,13 @@
                 },
                 (err) => {
                     if (btn) btn.classList.remove('loading');
-                    // Mensagem amigável caso a permissão do aparelho esteja desligada
-                    mostrarErro("GPS", "Sem resposta do hardware. Verifique se a 'Localização/GPS' está ativa no celular.");
+                    statusText.innerHTML = "❌ Erro de permissão: Vá nas configurações do seu celular e mude as Permissões deste App para permitir 'Localização'.";
+                    mostrarErro("GPS", "Bloqueado pelo sistema operacional do celular.");
                 },
                 {
                     enableHighAccuracy: true,
-                    maximumAge: 10000, // Permite usar última posição em cache se o satélite demorar
-                    timeout: 20000     // 20 segundos de tolerância antes de dar timeout
+                    maximumAge: 5000, 
+                    timeout: 15000     
                 }
             );
         };
@@ -475,16 +470,13 @@
             }
         };
 
-        window.limparRota = function() {
+        window.window.limparRota = function() {
             historicoRota = [];
             if (linhaRota) map.removeLayer(linhaRota);
-            statusText.innerHTML = "Histórico de rota limpo localmente.";
+            statusText.innerHTML = "Histórico de tela limpo.";
         };
 
-        // Loop automático a cada 8 segundos
-        setInterval(window.atualizarLocalizacao, 8000);
-        
-        // Execução inicial imediata
+        setInterval(window.atualizarLocalizacao, 10000); // 10s para estabilizar tráfego mobile
         window.atualizarLocalizacao();
     </script>
 </body>
