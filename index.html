@@ -16,13 +16,24 @@ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"/>
 
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
 <style>
 
 :root{
     --primary:#00ff88;
     --bg:#121212;
     --card:#1e1e1e;
+    /* NEW ADDITIONS */
+    --accent2:#00c8ff;
+    --warn:#ffaa00;
+    --danger:#ff4455;
+    --card2:#252525;
+    --glow: 0 0 18px rgba(0,255,136,0.35);
+    --radius:12px;
 }
+
+/* ---- ORIGINALS PRESERVED ---- */
 
 body{
     margin:0;
@@ -98,53 +109,423 @@ button{
     display:none !important;
 }
 
+/* =============== NEW ADDITIONS BELOW =============== */
+
+/* Enhanced header */
+header {
+    position: relative;
+    overflow: hidden;
+}
+header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--primary), var(--accent2), transparent);
+    animation: scanline 3s linear infinite;
+}
+@keyframes scanline {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.gps-signal {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 20px;
+}
+.gps-signal span {
+    width: 4px;
+    border-radius: 2px;
+    background: #333;
+    transition: background 0.4s, height 0.4s;
+}
+.gps-signal span:nth-child(1) { height: 5px; }
+.gps-signal span:nth-child(2) { height: 10px; }
+.gps-signal span:nth-child(3) { height: 15px; }
+.gps-signal span:nth-child(4) { height: 20px; }
+.gps-signal.active span { background: var(--primary); animation: pulse-bar 1.4s ease-in-out infinite; }
+.gps-signal.weak span:nth-child(1),
+.gps-signal.weak span:nth-child(2) { background: var(--warn); }
+@keyframes pulse-bar {
+    0%,100% { opacity:1; }
+    50% { opacity:0.4; }
+}
+
+/* Map overlay buttons */
+.map-wrapper {
+    position: relative;
+}
+.map-controls-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.map-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: rgba(30,30,30,0.92);
+    border: 1px solid rgba(0,255,136,0.3);
+    color: var(--primary);
+    font-size: 1.1em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    backdrop-filter: blur(6px);
+    transition: background 0.2s, box-shadow 0.2s;
+}
+.map-btn:hover {
+    background: rgba(0,255,136,0.15);
+    box-shadow: var(--glow);
+}
+
+/* Metrics grid */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 0;
+}
+.metric-card {
+    background: var(--card2);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    border: 1px solid #2a2a2a;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+}
+.metric-card:hover {
+    border-color: rgba(0,255,136,0.3);
+}
+.metric-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0;
+    height: 2px;
+    width: var(--bar, 0%);
+    background: var(--primary);
+    transition: width 1s ease;
+}
+.metric-label {
+    font-size: 0.68em;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: 'Share Tech Mono', monospace;
+}
+.metric-value {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.6em;
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1;
+}
+.metric-unit {
+    font-size: 0.65em;
+    color: #666;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+/* Speed arc */
+.speed-card {
+    grid-column: span 2;
+    background: var(--card2);
+    border-radius: var(--radius);
+    border: 1px solid #2a2a2a;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.speed-arc-wrapper {
+    flex-shrink: 0;
+}
+.speed-arc-wrapper svg { display: block; }
+.speed-text {
+    flex: 1;
+}
+.speed-num {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 2.6em;
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1;
+    text-shadow: var(--glow);
+}
+.speed-label {
+    font-size: 0.7em;
+    color: #666;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 2px;
+}
+
+/* Enhanced button */
+button#btnAtualizar {
+    background: linear-gradient(135deg, #00ff88 0%, #00c8ff 100%);
+    color: #000;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.1em;
+    letter-spacing: 2px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px rgba(0,255,136,0.25);
+}
+button#btnAtualizar:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 28px rgba(0,255,136,0.4);
+}
+button#btnAtualizar:active {
+    transform: translateY(0);
+}
+button#btnAtualizar.loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+button#btnAtualizar .btn-icon {
+    display: inline-block;
+    transition: transform 0.6s;
+}
+button#btnAtualizar.loading .btn-icon {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Enhanced status box */
+.status-box {
+    border: 1px solid #2a2a2a;
+    position: relative;
+    padding-top: 20px;
+}
+.status-label-tag {
+    position: absolute;
+    top: -10px;
+    left: 12px;
+    background: var(--card2);
+    padding: 1px 8px;
+    font-size: 0.68em;
+    color: var(--primary);
+    border: 1px solid rgba(0,255,136,0.4);
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+}
+.status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #444;
+    margin-right: 6px;
+    vertical-align: middle;
+    transition: background 0.4s;
+}
+.status-dot.active {
+    background: var(--primary);
+    box-shadow: 0 0 8px var(--primary);
+    animation: blink 1.5s ease-in-out infinite;
+}
+.status-dot.warn { background: var(--warn); }
+.status-dot.error { background: var(--danger); }
+@keyframes blink {
+    0%,100% { opacity:1; }
+    50% { opacity:0.3; }
+}
+
+/* Toast */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    pointer-events: none;
+}
+.toast {
+    background: rgba(30,30,30,0.95);
+    border: 1px solid rgba(0,255,136,0.4);
+    color: white;
+    padding: 10px 18px;
+    border-radius: 24px;
+    font-size: 0.85em;
+    font-family: 'Share Tech Mono', monospace;
+    backdrop-filter: blur(8px);
+    animation: toastIn 0.3s ease, toastOut 0.4s ease 2.6s forwards;
+    white-space: nowrap;
+}
+.toast.warn { border-color: rgba(255,170,0,0.5); color: var(--warn); }
+.toast.error { border-color: rgba(255,68,85,0.5); color: var(--danger); }
+@keyframes toastIn {
+    from { opacity:0; transform: translateY(14px); }
+    to { opacity:1; transform: translateY(0); }
+}
+@keyframes toastOut {
+    to { opacity:0; transform: translateY(-8px); }
+}
+
+/* History trail count badge */
+.trail-badge {
+    display: inline-block;
+    background: rgba(0,255,136,0.12);
+    border: 1px solid rgba(0,255,136,0.3);
+    color: var(--primary);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72em;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+/* Input enhanced */
+input#veiculoID {
+    border: 1px solid #2a2a2a;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+input#veiculoID:focus {
+    outline: none;
+    border-color: rgba(0,255,136,0.5);
+    box-shadow: 0 0 0 3px rgba(0,255,136,0.08);
+}
+
+/* Accuracy bar */
+.accuracy-bar-wrap {
+    height: 4px;
+    background: #2a2a2a;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+.accuracy-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--accent2));
+    border-radius: 2px;
+    transition: width 1s ease;
+}
+
+/* Error log enhanced */
+.error-log {
+    border-radius: var(--radius);
+    max-height: 120px;
+    overflow-y: auto;
+}
+
 </style>
 
 </head>
 
 <body>
 
+<!-- TOAST CONTAINER (NEW) -->
+<div class="toast-container" id="toastContainer"></div>
+
 <header>
-
-<h2 style="margin:0">
-🛰️ Everton GPS PRO
-</h2>
-
+<!-- NEW: animated scanline in CSS above -->
+<div class="header-inner">
+    <h2 style="margin:0;font-family:'Rajdhani',sans-serif;letter-spacing:3px;font-size:1.35em">
+        🛰️ Everton GPS PRO
+    </h2>
+    <!-- NEW: GPS signal indicator -->
+    <div class="gps-signal" id="gpsSignal">
+        <span></span><span></span><span></span><span></span>
+    </div>
+</div>
+<!-- NEW: subtitle -->
+<div style="font-size:0.68em;color:#555;font-family:'Share Tech Mono',monospace;letter-spacing:2px;margin-top:4px">
+    RASTREAMENTO EM TEMPO REAL
+</div>
 </header>
 
-<div id="map"></div>
+<!-- NEW: map wrapped for overlay controls -->
+<div class="map-wrapper">
+    <div id="map"></div>
+    <div class="map-controls-overlay">
+        <button class="map-btn" title="Centralizar" onclick="centralizarMapa()">📍</button>
+        <button class="map-btn" title="Limpar rota" onclick="limparRota()">🗑️</button>
+    </div>
+</div>
 
 <div class="controls">
 
+<!-- ORIGINAL input preserved -->
 <input
 type="text"
 id="veiculoID"
 value="VEICULO-01"
 placeholder="ID do veículo">
 
-<button onclick="window.atualizarLocalizacao()">
-
-ATUALIZAR LOCALIZAÇÃO
-
+<!-- ORIGINAL button preserved, id added for styling only -->
+<button id="btnAtualizar" onclick="window.atualizarLocalizacao()">
+    <span class="btn-icon">🛰️</span> ATUALIZAR LOCALIZAÇÃO
 </button>
 
+<!-- NEW: Metrics grid -->
+<div class="metrics-grid" id="metricsGrid" style="display:none">
+    <div class="metric-card" style="--bar:0%" id="mc-vel">
+        <span class="metric-label">Velocidade</span>
+        <span class="metric-value" id="mv-vel">0</span>
+        <span class="metric-unit">KM/H</span>
+    </div>
+    <div class="metric-card" style="--bar:0%" id="mc-acc">
+        <span class="metric-label">Precisão GPS</span>
+        <span class="metric-value" id="mv-acc">—</span>
+        <span class="metric-unit">METROS</span>
+    </div>
+    <div class="metric-card" id="mc-pts">
+        <span class="metric-label">Pontos <span class="trail-badge" id="trailCount">0</span></span>
+        <span class="metric-value" id="mv-pts">0</span>
+        <span class="metric-unit">REGISTROS</span>
+    </div>
+    <div class="metric-card" id="mc-time">
+        <span class="metric-label">Última atualização</span>
+        <span class="metric-value" id="mv-time" style="font-size:1.1em">—</span>
+        <span class="metric-unit">HORÁRIO</span>
+    </div>
+</div>
+
+<!-- ORIGINAL status box preserved, enhanced visually -->
 <div class="status-box">
-
-<strong>Status:</strong>
-
-<div id="statusText">
-
-Inicializando GPS...
-
+    <span class="status-label-tag">● SISTEMA</span>
+    <span class="status-dot" id="statusDot"></span>
+    <div id="statusText">
+        Inicializando GPS...
+    </div>
 </div>
 
-</div>
-
+<!-- ORIGINAL error log preserved -->
 <div id="errorLog"
 class="error-log"></div>
 
 </div>
 
+<!-- ORIGINALS scripts preserved -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
@@ -211,6 +592,11 @@ function mostrarErro(origem,mensagem){
     `;
 
     console.error(origem,mensagem);
+
+    // NEW: toast for errors
+    mostrarToast(`[${origem}] ${mensagem}`, 'error');
+    atualizarStatusDot('error');
+    atualizarSinal(false);
 }
 
 // ================= MAPA =================
@@ -555,6 +941,12 @@ async function enviarDadosParaFirebase(dados){
 
         `;
 
+        // NEW: update metrics panel
+        atualizarMetricas(dados);
+        atualizarStatusDot('active');
+        atualizarSinal(true, dados.acuracia);
+        mostrarToast(`✅ Posição atualizada — ${endereco.rua || endereco.cidade}`);
+
     }catch(e){
 
         mostrarErro(
@@ -569,14 +961,25 @@ async function enviarDadosParaFirebase(dados){
 window.atualizarLocalizacao =
 function(){
 
+    // NEW: loading state on button
+    const btn = document.getElementById('btnAtualizar');
+    if(btn){ btn.classList.add('loading'); }
+
 navigator.geolocation.getCurrentPosition(
 
 async(pos)=>{
+
+    if(btn){ btn.classList.remove('loading'); }
 
     if(pos.coords.accuracy > 30){
 
         statusText.innerHTML =
         "⚠️ GPS fraco. Aguarde sinal melhor.";
+
+        // NEW: warn state
+        atualizarStatusDot('warn');
+        atualizarSinal(false, pos.coords.accuracy);
+        mostrarToast('⚠️ Sinal GPS fraco. Aguardando...', 'warn');
 
         return;
     }
@@ -620,6 +1023,8 @@ async(pos)=>{
 
 (err)=>{
 
+    if(btn){ btn.classList.remove('loading'); }
+
     mostrarErro(
         "GPS",
         err.message
@@ -644,6 +1049,83 @@ setInterval(()=>{
 
 // inicia
 window.atualizarLocalizacao();
+
+// ============ NEW ADDITIONS: UI HELPERS ============
+
+// Toast notification
+function mostrarToast(msg, tipo = '') {
+    const container = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = 'toast' + (tipo ? ' ' + tipo : '');
+    t.textContent = msg;
+    container.appendChild(t);
+    setTimeout(() => t.remove(), 3100);
+}
+
+// Status dot
+function atualizarStatusDot(estado) {
+    const dot = document.getElementById('statusDot');
+    if (!dot) return;
+    dot.className = 'status-dot ' + estado;
+}
+
+// GPS signal bars
+function atualizarSinal(ativo, acuracia = 99) {
+    const sig = document.getElementById('gpsSignal');
+    if (!sig) return;
+    sig.className = 'gps-signal';
+    if (ativo && acuracia <= 30) sig.classList.add('active');
+    else if (acuracia > 30 && acuracia <= 60) sig.classList.add('weak');
+}
+
+// Metrics panel
+let totalRegistros = 0;
+function atualizarMetricas(dados) {
+    totalRegistros++;
+    const grid = document.getElementById('metricsGrid');
+    if (grid) grid.style.display = 'grid';
+
+    const vel = Number(dados.velocidade) || 0;
+    const acc = Number(dados.acuracia) || 0;
+
+    const mvVel = document.getElementById('mv-vel');
+    if (mvVel) mvVel.textContent = vel;
+
+    const mcVel = document.getElementById('mc-vel');
+    if (mcVel) mcVel.style.setProperty('--bar', Math.min(vel / 120 * 100, 100) + '%');
+
+    const mvAcc = document.getElementById('mv-acc');
+    if (mvAcc) mvAcc.textContent = acc;
+
+    const mcAcc = document.getElementById('mc-acc');
+    if (mcAcc) mcAcc.style.setProperty('--bar', Math.max(0, 100 - acc * 3) + '%');
+
+    const mvPts = document.getElementById('mv-pts');
+    if (mvPts) mvPts.textContent = totalRegistros;
+
+    const trail = document.getElementById('trailCount');
+    if (trail) trail.textContent = historicoRota.length;
+
+    const mvTime = document.getElementById('mv-time');
+    if (mvTime) mvTime.textContent = dados.hora;
+}
+
+// Map overlay controls
+window.centralizarMapa = function() {
+    if (historicoRota.length > 0) {
+        const ult = historicoRota[historicoRota.length - 1];
+        map.flyTo([ult.lat, ult.lon], 19);
+        mostrarToast('📍 Centralizado no veículo');
+    }
+};
+
+window.limparRota = function() {
+    historicoRota = [];
+    if (controleRota) { map.removeControl(controleRota); controleRota = null; }
+    mostrarToast('🗑️ Histórico de rota limpo');
+    const trail = document.getElementById('trailCount');
+    if (trail) trail.textContent = '0';
+};
 
 </script>
 
