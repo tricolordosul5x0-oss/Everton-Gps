@@ -2,1132 +2,490 @@
 <html lang="pt-br">
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Everton GPS PRO</title>
 
-<meta charset="UTF-8">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary: #00ff88;
+            --bg: #121212;
+            --card: #1e1e1e;
+            --accent2: #00c8ff;
+            --warn: #ffaa00;
+            --danger: #ff4455;
+            --card2: #252525;
+            --glow: 0 0 18px rgba(0,255,136,0.35);
+            --radius: 12px;
+        }
 
-<title>Everton GPS PRO</title>
+        body {
+            margin: 0;
+            padding: 10px;
+            background: var(--bg);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-<link rel="stylesheet"
-href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+        header {
+            background: var(--card);
+            padding: 15px;
+            border-bottom: 2px solid var(--primary);
+            text-align: center;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
 
-<link rel="stylesheet"
-href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"/>
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), var(--accent2), transparent);
+            animation: scanline 3s linear infinite;
+        }
 
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+        @keyframes scanline {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
 
-<style>
+        .header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
 
-:root{
-    --primary:#00ff88;
-    --bg:#121212;
-    --card:#1e1e1e;
-    /* NEW ADDITIONS */
-    --accent2:#00c8ff;
-    --warn:#ffaa00;
-    --danger:#ff4455;
-    --card2:#252525;
-    --glow: 0 0 18px rgba(0,255,136,0.35);
-    --radius:12px;
-}
+        .gps-signal {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 20px;
+        }
 
-/* ---- ORIGINALS PRESERVED ---- */
+        .gps-signal span {
+            width: 4px;
+            border-radius: 2px;
+            background: #333;
+            transition: background 0.4s, height 0.4s;
+        }
 
-body{
-    margin:0;
-    padding:10px;
-    background:var(--bg);
-    color:white;
-    font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
-}
+        .gps-signal span:nth-child(1) { height: 5px; }
+        .gps-signal span:nth-child(2) { height: 10px; }
+        .gps-signal span:nth-child(3) { height: 15px; }
+        .gps-signal span:nth-child(4) { height: 20px; }
+        
+        .gps-signal.active span { background: var(--primary); animation: pulse-bar 1.4s ease-in-out infinite; }
+        .gps-signal.weak span { background: var(--warn); }
+        
+        @keyframes pulse-bar {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
 
-header{
-    background:var(--card);
-    padding:15px;
-    border-bottom:2px solid var(--primary);
-    text-align:center;
-    margin-bottom:10px;
-    border-radius:10px;
-}
+        #map {
+            height: 320px;
+            width: 100%;
+            border-radius: 10px;
+            background: #252525;
+        }
 
-#map{
-    height:320px;
-    width:100%;
-    border-radius:10px;
-}
+        .map-wrapper {
+            position: relative;
+        }
 
-.controls{
-    margin-top:15px;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-}
+        .map-controls-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
 
-input{
-    padding:12px;
-    border:none;
-    border-radius:8px;
-    background:#252525;
-    color:white;
-    font-size:1em;
-}
+        .map-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            background: rgba(30,30,30,0.92);
+            border: 1px solid rgba(0,255,136,0.3);
+            color: var(--primary);
+            font-size: 1.1em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            backdrop-filter: blur(6px);
+            transition: background 0.2s, box-shadow 0.2s;
+        }
 
-button{
-    padding:14px;
-    border:none;
-    border-radius:8px;
-    background:var(--primary);
-    color:black;
-    font-weight:bold;
-    cursor:pointer;
-    font-size:1em;
-}
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
 
-.status-box{
-    background:#252525;
-    padding:15px;
-    border-radius:8px;
-    border:1px solid #333;
-    line-height:1.8;
-    font-size:1em;
-}
+        input {
+            padding: 12px;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            background: #252525;
+            color: white;
+            font-size: 1em;
+            font-family: 'Share Tech Mono', monospace;
+            letter-spacing: 1px;
+        }
 
-.error-log{
-    background:#3a1a1a;
-    border:1px solid #ff4444;
-    color:#ff9999;
-    padding:10px;
-    border-radius:8px;
-    display:none;
-    font-size:.85em;
-    font-family:monospace;
-}
+        button#btnAtualizar {
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #00ff88 0%, #00c8ff 100%);
+            color: black;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-family: 'Rajdhani', sans-serif;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 20px rgba(0,255,136,0.25);
+        }
 
-.leaflet-routing-container{
-    display:none !important;
-}
+        button#btnAtualizar.loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
 
-/* =============== NEW ADDITIONS BELOW =============== */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
 
-/* Enhanced header */
-header {
-    position: relative;
-    overflow: hidden;
-}
-header::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--primary), var(--accent2), transparent);
-    animation: scanline 3s linear infinite;
-}
-@keyframes scanline {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-}
+        .metric-card {
+            background: var(--card2);
+            border-radius: var(--radius);
+            padding: 12px 14px;
+            border: 1px solid #2a2a2a;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
 
-.header-inner {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-}
+        .metric-label {
+            font-size: 0.68em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: 'Share Tech Mono', monospace;
+        }
 
-.gps-signal {
-    display: flex;
-    align-items: flex-end;
-    gap: 3px;
-    height: 20px;
-}
-.gps-signal span {
-    width: 4px;
-    border-radius: 2px;
-    background: #333;
-    transition: background 0.4s, height 0.4s;
-}
-.gps-signal span:nth-child(1) { height: 5px; }
-.gps-signal span:nth-child(2) { height: 10px; }
-.gps-signal span:nth-child(3) { height: 15px; }
-.gps-signal span:nth-child(4) { height: 20px; }
-.gps-signal.active span { background: var(--primary); animation: pulse-bar 1.4s ease-in-out infinite; }
-.gps-signal.weak span:nth-child(1),
-.gps-signal.weak span:nth-child(2) { background: var(--warn); }
-@keyframes pulse-bar {
-    0%,100% { opacity:1; }
-    50% { opacity:0.4; }
-}
+        .metric-value {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.5em;
+            font-weight: 700;
+            color: var(--primary);
+        }
 
-/* Map overlay buttons */
-.map-wrapper {
-    position: relative;
-}
-.map-controls-overlay {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-.map-btn {
-    width: 38px;
-    height: 38px;
-    border-radius: 8px;
-    background: rgba(30,30,30,0.92);
-    border: 1px solid rgba(0,255,136,0.3);
-    color: var(--primary);
-    font-size: 1.1em;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    backdrop-filter: blur(6px);
-    transition: background 0.2s, box-shadow 0.2s;
-}
-.map-btn:hover {
-    background: rgba(0,255,136,0.15);
-    box-shadow: var(--glow);
-}
+        .metric-unit {
+            font-size: 0.65em;
+            color: #666;
+            font-family: 'Share Tech Mono', monospace;
+        }
 
-/* Metrics grid */
-.metrics-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 0;
-}
-.metric-card {
-    background: var(--card2);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-    border: 1px solid #2a2a2a;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.3s;
-}
-.metric-card:hover {
-    border-color: rgba(0,255,136,0.3);
-}
-.metric-card::after {
-    content: '';
-    position: absolute;
-    bottom: 0; left: 0;
-    height: 2px;
-    width: var(--bar, 0%);
-    background: var(--primary);
-    transition: width 1s ease;
-}
-.metric-label {
-    font-size: 0.68em;
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-family: 'Share Tech Mono', monospace;
-}
-.metric-value {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 1.6em;
-    font-weight: 700;
-    color: var(--primary);
-    line-height: 1;
-}
-.metric-unit {
-    font-size: 0.65em;
-    color: #666;
-    font-family: 'Share Tech Mono', monospace;
-}
+        .status-box {
+            background: #252525;
+            padding: 20px 15px 15px 15px;
+            border-radius: 8px;
+            border: 1px solid #2a2a2a;
+            line-height: 1.8;
+            font-size: 1em;
+            position: relative;
+        }
 
-/* Speed arc */
-.speed-card {
-    grid-column: span 2;
-    background: var(--card2);
-    border-radius: var(--radius);
-    border: 1px solid #2a2a2a;
-    padding: 14px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-.speed-arc-wrapper {
-    flex-shrink: 0;
-}
-.speed-arc-wrapper svg { display: block; }
-.speed-text {
-    flex: 1;
-}
-.speed-num {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 2.6em;
-    font-weight: 700;
-    color: var(--primary);
-    line-height: 1;
-    text-shadow: var(--glow);
-}
-.speed-label {
-    font-size: 0.7em;
-    color: #666;
-    font-family: 'Share Tech Mono', monospace;
-    letter-spacing: 2px;
-}
+        .status-label-tag {
+            position: absolute;
+            top: -10px;
+            left: 12px;
+            background: var(--card2);
+            padding: 1px 8px;
+            font-size: 0.68em;
+            color: var(--primary);
+            border: 1px solid rgba(0,255,136,0.4);
+            border-radius: 4px;
+            font-family: 'Share Tech Mono', monospace;
+        }
 
-/* Enhanced button */
-button#btnAtualizar {
-    background: linear-gradient(135deg, #00ff88 0%, #00c8ff 100%);
-    color: #000;
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 1.1em;
-    letter-spacing: 2px;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.15s, box-shadow 0.2s;
-    box-shadow: 0 4px 20px rgba(0,255,136,0.25);
-}
-button#btnAtualizar:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 28px rgba(0,255,136,0.4);
-}
-button#btnAtualizar:active {
-    transform: translateY(0);
-}
-button#btnAtualizar.loading {
-    pointer-events: none;
-    opacity: 0.7;
-}
-button#btnAtualizar .btn-icon {
-    display: inline-block;
-    transition: transform 0.6s;
-}
-button#btnAtualizar.loading .btn-icon {
-    animation: spin 1s linear infinite;
-}
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #444;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
 
-/* Enhanced status box */
-.status-box {
-    border: 1px solid #2a2a2a;
-    position: relative;
-    padding-top: 20px;
-}
-.status-label-tag {
-    position: absolute;
-    top: -10px;
-    left: 12px;
-    background: var(--card2);
-    padding: 1px 8px;
-    font-size: 0.68em;
-    color: var(--primary);
-    border: 1px solid rgba(0,255,136,0.4);
-    border-radius: 4px;
-    font-family: 'Share Tech Mono', monospace;
-    letter-spacing: 1px;
-}
-.status-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #444;
-    margin-right: 6px;
-    vertical-align: middle;
-    transition: background 0.4s;
-}
-.status-dot.active {
-    background: var(--primary);
-    box-shadow: 0 0 8px var(--primary);
-    animation: blink 1.5s ease-in-out infinite;
-}
-.status-dot.warn { background: var(--warn); }
-.status-dot.error { background: var(--danger); }
-@keyframes blink {
-    0%,100% { opacity:1; }
-    50% { opacity:0.3; }
-}
+        .status-dot.active { background: var(--primary); box-shadow: 0 0 8px var(--primary); }
+        .status-dot.warn { background: var(--warn); }
+        .status-dot.error { background: var(--danger); }
 
-/* Toast */
-.toast-container {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    align-items: center;
-    pointer-events: none;
-}
-.toast {
-    background: rgba(30,30,30,0.95);
-    border: 1px solid rgba(0,255,136,0.4);
-    color: white;
-    padding: 10px 18px;
-    border-radius: 24px;
-    font-size: 0.85em;
-    font-family: 'Share Tech Mono', monospace;
-    backdrop-filter: blur(8px);
-    animation: toastIn 0.3s ease, toastOut 0.4s ease 2.6s forwards;
-    white-space: nowrap;
-}
-.toast.warn { border-color: rgba(255,170,0,0.5); color: var(--warn); }
-.toast.error { border-color: rgba(255,68,85,0.5); color: var(--danger); }
-@keyframes toastIn {
-    from { opacity:0; transform: translateY(14px); }
-    to { opacity:1; transform: translateY(0); }
-}
-@keyframes toastOut {
-    to { opacity:0; transform: translateY(-8px); }
-}
-
-/* History trail count badge */
-.trail-badge {
-    display: inline-block;
-    background: rgba(0,255,136,0.12);
-    border: 1px solid rgba(0,255,136,0.3);
-    color: var(--primary);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.72em;
-    padding: 2px 8px;
-    border-radius: 20px;
-    margin-left: 6px;
-    vertical-align: middle;
-}
-
-/* Input enhanced */
-input#veiculoID {
-    border: 1px solid #2a2a2a;
-    font-family: 'Share Tech Mono', monospace;
-    letter-spacing: 1px;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-input#veiculoID:focus {
-    outline: none;
-    border-color: rgba(0,255,136,0.5);
-    box-shadow: 0 0 0 3px rgba(0,255,136,0.08);
-}
-
-/* Accuracy bar */
-.accuracy-bar-wrap {
-    height: 4px;
-    background: #2a2a2a;
-    border-radius: 2px;
-    overflow: hidden;
-    margin-top: 4px;
-}
-.accuracy-bar {
-    height: 100%;
-    background: linear-gradient(90deg, var(--primary), var(--accent2));
-    border-radius: 2px;
-    transition: width 1s ease;
-}
-
-/* Error log enhanced */
-.error-log {
-    border-radius: var(--radius);
-    max-height: 120px;
-    overflow-y: auto;
-}
-
-</style>
-
+        .error-log {
+            background: #3a1a1a;
+            border: 1px solid #ff4444;
+            color: #ff9999;
+            padding: 10px;
+            border-radius: 8px;
+            display: none;
+            font-size: .85em;
+            font-family: monospace;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+    </style>
 </head>
 
 <body>
 
-<!-- TOAST CONTAINER (NEW) -->
-<div class="toast-container" id="toastContainer"></div>
+    <header>
+        <div class="header-inner">
+            <h2 style="margin:0;font-family:'Rajdhani',sans-serif;letter-spacing:3px;font-size:1.35em">
+                🛰️ Everton GPS PRO
+            </h2>
+            <div class="gps-signal" id="gpsSignal">
+                <span></span><span></span><span></span><span></span>
+            </div>
+        </div>
+        <div style="font-size:0.68em;color:#888;font-family:'Share Tech Mono',monospace;letter-spacing:2px;margin-top:4px">
+            RASTREAMENTO EM TEMPO REAL
+        </div>
+    </header>
 
-<header>
-<!-- NEW: animated scanline in CSS above -->
-<div class="header-inner">
-    <h2 style="margin:0;font-family:'Rajdhani',sans-serif;letter-spacing:3px;font-size:1.35em">
-        🛰️ Everton GPS PRO
-    </h2>
-    <!-- NEW: GPS signal indicator -->
-    <div class="gps-signal" id="gpsSignal">
-        <span></span><span></span><span></span><span></span>
+    <div class="map-wrapper">
+        <div id="map"></div>
+        <div class="map-controls-overlay">
+            <button class="map-btn" title="Centralizar" onclick="window.centralizarMapa()">📍</button>
+            <button class="map-btn" title="Limpar rota" onclick="window.limparRota()">🗑️</button>
+        </div>
     </div>
-</div>
-<!-- NEW: subtitle -->
-<div style="font-size:0.68em;color:#555;font-family:'Share Tech Mono',monospace;letter-spacing:2px;margin-top:4px">
-    RASTREAMENTO EM TEMPO REAL
-</div>
-</header>
 
-<!-- NEW: map wrapped for overlay controls -->
-<div class="map-wrapper">
-    <div id="map"></div>
-    <div class="map-controls-overlay">
-        <button class="map-btn" title="Centralizar" onclick="centralizarMapa()">📍</button>
-        <button class="map-btn" title="Limpar rota" onclick="limparRota()">🗑️</button>
+    <div class="controls">
+        <input type="text" id="veiculoID" value="VEICULO-01" placeholder="ID do veículo">
+
+        <button id="btnAtualizar" onclick="window.atualizarLocalizacao()">
+            🛰️ ATUALIZAR LOCALIZAÇÃO
+        </button>
+
+        <div class="metrics-grid" id="metricsGrid" style="display:none">
+            <div class="metric-card">
+                <span class="metric-label">Velocidade</span>
+                <span class="metric-value" id="mv-vel">0</span>
+                <span class="metric-unit">KM/H</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">Precisão GPS</span>
+                <span class="metric-value" id="mv-acc">—</span>
+                <span class="metric-unit">METROS</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">Pontos</span>
+                <span class="metric-value" id="mv-pts">0</span>
+                <span class="metric-unit">REGISTROS</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">Atualização</span>
+                <span class="metric-value" id="mv-time" style="font-size:1.1em">—</span>
+                <span class="metric-unit">HORÁRIO</span>
+            </div>
+        </div>
+
+        <div class="status-box">
+            <span class="status-label-tag">● SISTEMA</span>
+            <span class="status-dot" id="statusDot"></span>
+            <div id="statusText">Inicializando GPS...</div>
+        </div>
+
+        <div id="errorLog" class="error-log"></div>
     </div>
-</div>
 
-<div class="controls">
-
-<!-- ORIGINAL input preserved -->
-<input
-type="text"
-id="veiculoID"
-value="VEICULO-01"
-placeholder="ID do veículo">
-
-<!-- ORIGINAL button preserved, id added for styling only -->
-<button id="btnAtualizar" onclick="window.atualizarLocalizacao()">
-    <span class="btn-icon">🛰️</span> ATUALIZAR LOCALIZAÇÃO
-</button>
-
-<!-- NEW: Metrics grid -->
-<div class="metrics-grid" id="metricsGrid" style="display:none">
-    <div class="metric-card" style="--bar:0%" id="mc-vel">
-        <span class="metric-label">Velocidade</span>
-        <span class="metric-value" id="mv-vel">0</span>
-        <span class="metric-unit">KM/H</span>
-    </div>
-    <div class="metric-card" style="--bar:0%" id="mc-acc">
-        <span class="metric-label">Precisão GPS</span>
-        <span class="metric-value" id="mv-acc">—</span>
-        <span class="metric-unit">METROS</span>
-    </div>
-    <div class="metric-card" id="mc-pts">
-        <span class="metric-label">Pontos <span class="trail-badge" id="trailCount">0</span></span>
-        <span class="metric-value" id="mv-pts">0</span>
-        <span class="metric-unit">REGISTROS</span>
-    </div>
-    <div class="metric-card" id="mc-time">
-        <span class="metric-label">Última atualização</span>
-        <span class="metric-value" id="mv-time" style="font-size:1.1em">—</span>
-        <span class="metric-unit">HORÁRIO</span>
-    </div>
-</div>
-
-<!-- ORIGINAL status box preserved, enhanced visually -->
-<div class="status-box">
-    <span class="status-label-tag">● SISTEMA</span>
-    <span class="status-dot" id="statusDot"></span>
-    <div id="statusText">
-        Inicializando GPS...
-    </div>
-</div>
-
-<!-- ORIGINAL error log preserved -->
-<div id="errorLog"
-class="error-log"></div>
-
-</div>
-
-<!-- ORIGINALS scripts preserved -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-
-<script type="module">
-
-import { initializeApp }
-from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-
-import {
-    getDatabase,
-    ref,
-    set,
-    push
-}
-from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-// FIREBASE REAL
-const firebaseConfig = {
-
-    apiKey:
-    "AIzaSyDwKIS8wL3D7OuaysVFWz3D7Oua",
-
-    authDomain:
-    "everton-gps.firebaseapp.com",
-
-    databaseURL:
-    "https://everton-gps-default-rtdb.firebaseio.com",
-
-    projectId:
-    "everton-gps",
-
-    storageBucket:
-    "everton-gps.appspot.com",
-
-    messagingSenderId:
-    "688936933095",
-
-    appId:
-    "1:688936933095:web:5508a8e1008f1b4020a1db",
-
-    measurementId:
-    "G-X14EWTZN18"
-};
-
-const app =
-initializeApp(firebaseConfig);
-
-const db =
-getDatabase(app);
-
-const statusText =
-document.getElementById('statusText');
-
-const errorLog =
-document.getElementById('errorLog');
-
-function mostrarErro(origem,mensagem){
-
-    errorLog.style.display = "block";
-
-    errorLog.innerHTML += `
-    [${origem}] ${mensagem}<br>
-    `;
-
-    console.error(origem,mensagem);
-
-    // NEW: toast for errors
-    mostrarToast(`[${origem}] ${mensagem}`, 'error');
-    atualizarStatusDot('error');
-    atualizarSinal(false);
-}
-
-// ================= MAPA =================
-
-let map;
-
-let marcador;
-
-let controleRota;
-
-let historicoRota = [];
-
-const carroIcone = L.icon({
-
-    iconUrl:
-    'https://cdn-icons-png.flaticon.com/512/744/744465.png',
-
-    iconSize:[40,40],
-
-    iconAnchor:[20,20]
-});
-
-function initMap(){
-
-    map = L.map('map').setView(
-        [-23.5505,-46.6333],
-        18
-    );
-
-    // MAPA SEM BLOQUEIO
-    L.tileLayer(
-    'https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png',
-    {
-        attribution:'© OpenStreetMap',
-        maxZoom:20
-    }).addTo(map);
-
-    marcador = L.marker(
-        [-23.5505,-46.6333],
-        {
-            icon:carroIcone
-        }
-    ).addTo(map);
-}
-
-initMap();
-
-// ================= DISTÂNCIA =================
-
-function distanciaMetros(
-lat1, lon1,
-lat2, lon2
-){
-
-    const R = 6371e3;
-
-    const φ1 = lat1 * Math.PI/180;
-    const φ2 = lat2 * Math.PI/180;
-
-    const Δφ =
-    (lat2-lat1) * Math.PI/180;
-
-    const Δλ =
-    (lon2-lon1) * Math.PI/180;
-
-    const a =
-
-    Math.sin(Δφ/2) *
-    Math.sin(Δφ/2)
-
-    +
-
-    Math.cos(φ1) *
-    Math.cos(φ2)
-
-    *
-
-    Math.sin(Δλ/2) *
-    Math.sin(Δλ/2);
-
-    const c =
-    2 * Math.atan2(
-        Math.sqrt(a),
-        Math.sqrt(1-a)
-    );
-
-    return R*c;
-}
-
-// ================= ROTA REAL =================
-
-async function desenharRotaReal(){
-
-    try{
-
-        if(historicoRota.length < 2)
-            return;
-
-        if(controleRota){
-
-            map.removeControl(
-                controleRota
-            );
-        }
-
-        const waypoints =
-        historicoRota.map(p=>
-
-            L.latLng(
-                p.lat,
-                p.lon
-            )
-        );
-
-        controleRota =
-        L.Routing.control({
-
-            waypoints,
-
-            addWaypoints:false,
-
-            draggableWaypoints:false,
-
-            fitSelectedRoutes:false,
-
-            show:false,
-
-            createMarker:()=>null,
-
-            router:
-            L.Routing.osrmv1({
-
-                serviceUrl:
-                'https://router.project-osrm.org/route/v1'
-            }),
-
-            lineOptions:{
-
-                styles:[{
-
-                    color:'#00ff88',
-
-                    opacity:0.9,
-
-                    weight:6
-                }]
-            }
-
-        }).addTo(map);
-
-    }catch(e){
-
-        mostrarErro(
-            "Rota",
-            e.message
-        );
-    }
-}
-
-// ================= ENDEREÇO =================
-
-async function buscarEndereco(lat, lon){
-
-    try{
-
-        const resposta =
-        await fetch(
-
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
-
-        );
-
-        const dados =
-        await resposta.json();
-
-        return {
-
-            rua:
-            dados.address.road || "",
-
-            bairro:
-            dados.address.suburb ||
-
-            dados.address.neighbourhood ||
-
-            "",
-
-            cidade:
-            dados.address.city ||
-
-            dados.address.town ||
-
-            dados.address.village ||
-
-            "",
-
-            estado:
-            dados.address.state || "",
-
-            local:
-            dados.name ||
-
-            dados.display_name ||
-
-            "",
-
-            completo:
-            dados.display_name || ""
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDwKIS8wL3D7OuaysVFWz3D7Oua",
+            authDomain: "everton-gps.firebaseapp.com",
+            databaseURL: "https://everton-gps-default-rtdb.firebaseio.com",
+            projectId: "everton-gps",
+            storageBucket: "everton-gps.appspot.com",
+            messagingSenderId: "688936933095",
+            appId: "1:688936933095:web:5508a8e1008f1b4020a1db",
+            measurementId: "G-X14EWTZN18"
         };
 
-    }catch(e){
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
 
-        mostrarErro(
-            "Endereço",
-            e.message
-        );
+        const statusText = document.getElementById('statusText');
+        const errorLog = document.getElementById('errorLog');
 
-        return {
+        let map, marcador;
+        let historicoRota = [];
+        let totalRegistros = 0;
+        let linhaRota = null; // Linha nativa simplificada para não travar o Leaflet
 
-            rua:"-",
-            bairro:"-",
-            cidade:"-",
-            estado:"-",
-            local:"-",
-            completo:"-"
-        };
-    }
-}
-
-// ================= FIREBASE =================
-
-async function enviarDadosParaFirebase(dados){
-
-    try{
-
-        const vID =
-        document.getElementById(
-            'veiculoID'
-        ).value || "VEICULO-01";
-
-        const ultimo =
-        historicoRota[
-            historicoRota.length-1
-        ];
-
-        if(ultimo){
-
-            const distancia =
-            distanciaMetros(
-
-                ultimo.lat,
-                ultimo.lon,
-
-                dados.lat,
-                dados.lon
-            );
-
-            if(distancia > 500){
-
-                return;
-            }
-        }
-
-        statusText.innerHTML =
-        "📡 Buscando endereço...";
-
-        const endereco =
-        await buscarEndereco(
-            dados.lat,
-            dados.lon
-        );
-
-        dados.endereco = endereco;
-
-        await set(
-            ref(
-                db,
-                `veiculos/${vID}/atual`
-            ),
-            dados
-        );
-
-        await push(
-            ref(
-                db,
-                `veiculos/${vID}/historico`
-            ),
-            dados
-        );
-
-        historicoRota.push({
-
-            lat:dados.lat,
-            lon:dados.lon
+        const carroIcone = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
         });
 
-        if(historicoRota.length > 50){
+        function initMap() {
+            // Inicializa centralizado no Brasil padrão antes de obter o GPS real
+            map = L.map('map').setView([-23.5505, -46.6333], 16);
+            
+            // Servidor estável do OpenStreetMap padrão
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 19
+            }).addTo(map);
 
-            historicoRota.shift();
+            marcador = L.marker([-23.5505, -46.6333], { icon: carroIcone }).addTo(map);
+        }
+        initMap();
+
+        function mostrarErro(origem, mensagem) {
+            errorLog.style.display = "block";
+            errorLog.innerHTML += `[${origem}] ${mensagem}<br>`;
+            document.getElementById('statusDot').className = 'status-dot error';
+            document.getElementById('gpsSignal').className = 'gps-signal';
         }
 
-        await desenharRotaReal();
-
-        const pos = [
-            dados.lat,
-            dados.lon
-        ];
-
-        marcador.setLatLng(pos);
-
-        // CENTRALIZA COM ZOOM
-        map.flyTo(pos, 19);
-
-        marcador.bindPopup(`
-
-        <b>${vID}</b><br>
-
-        📍 ${endereco.rua}<br>
-
-        🏘️ ${endereco.bairro}<br>
-
-        🏙️ ${endereco.cidade}<br>
-
-        🚗 ${dados.velocidade} km/h
-
-        `);
-
-        statusText.innerHTML = `
-
-        ✅ Transmitindo<br><br>
-
-        📍 ${endereco.rua}<br>
-
-        🏘️ ${endereco.bairro}<br>
-
-        🏙️ ${endereco.cidade}<br>
-
-        🚗 ${dados.velocidade} km/h<br>
-
-        🎯 Precisão:
-        ${dados.acuracia}m
-
-        `;
-
-        // NEW: update metrics panel
-        atualizarMetricas(dados);
-        atualizarStatusDot('active');
-        atualizarSinal(true, dados.acuracia);
-        mostrarToast(`✅ Posição atualizada — ${endereco.rua || endereco.cidade}`);
-
-    }catch(e){
-
-        mostrarErro(
-            "Firebase",
-            e.message
-        );
-    }
-}
-
-// ================= GPS REAL =================
-
-window.atualizarLocalizacao =
-function(){
-
-    // NEW: loading state on button
-    const btn = document.getElementById('btnAtualizar');
-    if(btn){ btn.classList.add('loading'); }
-
-navigator.geolocation.getCurrentPosition(
-
-async(pos)=>{
-
-    if(btn){ btn.classList.remove('loading'); }
-
-    if(pos.coords.accuracy > 30){
-
-        statusText.innerHTML =
-        "⚠️ GPS fraco. Aguarde sinal melhor.";
-
-        // NEW: warn state
-        atualizarStatusDot('warn');
-        atualizarSinal(false, pos.coords.accuracy);
-        mostrarToast('⚠️ Sinal GPS fraco. Aguardando...', 'warn');
-
-        return;
-    }
-
-    const dadosGPS = {
-
-        lat:
-        pos.coords.latitude,
-
-        lon:
-        pos.coords.longitude,
-
-        hora:
-        new Date()
-        .toLocaleTimeString(),
-
-        timestamp:
-        Date.now(),
-
-        acuracia:
-        Number(
-            pos.coords.accuracy
-        ).toFixed(1),
-
-        velocidade:
-
-        pos.coords.speed ?
-
-        (
-            pos.coords.speed * 3.6
-        ).toFixed(0)
-
-        : 0
-    };
-
-    await enviarDadosParaFirebase(
-        dadosGPS
-    );
-
-},
-
-(err)=>{
-
-    if(btn){ btn.classList.remove('loading'); }
-
-    mostrarErro(
-        "GPS",
-        err.message
-    );
-
-},
-
-{
-    enableHighAccuracy:true,
-    maximumAge:1000,
-    timeout:30000
-});
-
-};
-
-// atualiza automático
-setInterval(()=>{
-
-    atualizarLocalizacao();
-
-},5000);
-
-// inicia
-window.atualizarLocalizacao();
-
-// ============ NEW ADDITIONS: UI HELPERS ============
-
-// Toast notification
-function mostrarToast(msg, tipo = '') {
-    const container = document.getElementById('toastContainer');
-    const t = document.createElement('div');
-    t.className = 'toast' + (tipo ? ' ' + tipo : '');
-    t.textContent = msg;
-    container.appendChild(t);
-    setTimeout(() => t.remove(), 3100);
-}
-
-// Status dot
-function atualizarStatusDot(estado) {
-    const dot = document.getElementById('statusDot');
-    if (!dot) return;
-    dot.className = 'status-dot ' + estado;
-}
-
-// GPS signal bars
-function atualizarSinal(ativo, acuracia = 99) {
-    const sig = document.getElementById('gpsSignal');
-    if (!sig) return;
-    sig.className = 'gps-signal';
-    if (ativo && acuracia <= 30) sig.classList.add('active');
-    else if (acuracia > 30 && acuracia <= 60) sig.classList.add('weak');
-}
-
-// Metrics panel
-let totalRegistros = 0;
-function atualizarMetricas(dados) {
-    totalRegistros++;
-    const grid = document.getElementById('metricsGrid');
-    if (grid) grid.style.display = 'grid';
-
-    const vel = Number(dados.velocidade) || 0;
-    const acc = Number(dados.acuracia) || 0;
-
-    const mvVel = document.getElementById('mv-vel');
-    if (mvVel) mvVel.textContent = vel;
-
-    const mcVel = document.getElementById('mc-vel');
-    if (mcVel) mcVel.style.setProperty('--bar', Math.min(vel / 120 * 100, 100) + '%');
-
-    const mvAcc = document.getElementById('mv-acc');
-    if (mvAcc) mvAcc.textContent = acc;
-
-    const mcAcc = document.getElementById('mc-acc');
-    if (mcAcc) mcAcc.style.setProperty('--bar', Math.max(0, 100 - acc * 3) + '%');
-
-    const mvPts = document.getElementById('mv-pts');
-    if (mvPts) mvPts.textContent = totalRegistros;
-
-    const trail = document.getElementById('trailCount');
-    if (trail) trail.textContent = historicoRota.length;
-
-    const mvTime = document.getElementById('mv-time');
-    if (mvTime) mvTime.textContent = dados.hora;
-}
-
-// Map overlay controls
-window.centralizarMapa = function() {
-    if (historicoRota.length > 0) {
-        const ult = historicoRota[historicoRota.length - 1];
-        map.flyTo([ult.lat, ult.lon], 19);
-        mostrarToast('📍 Centralizado no veículo');
-    }
-};
-
-window.limparRota = function() {
-    historicoRota = [];
-    if (controleRota) { map.removeControl(controleRota); controleRota = null; }
-    mostrarToast('🗑️ Histórico de rota limpo');
-    const trail = document.getElementById('trailCount');
-    if (trail) trail.textContent = '0';
-};
-
-</script>
-
+        async function buscarEndereco(lat, lon) {
+            try {
+                const resposta = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                const dados = await resposta.json();
+                return {
+                    rua: dados.address.road || "Rua não identificada",
+                    bairro: dados.address.suburb || dados.address.neighbourhood || "",
+                    cidade: dados.address.city || ""
+                };
+            } catch {
+                return { rua: "Posição registrada", bairro: "", city: "" };
+            }
+        }
+
+        async function enviarDadosParaFirebase(dados) {
+            try {
+                const vID = document.getElementById('veiculoID').value || "VEICULO-01";
+                statusText.innerHTML = "📡 Buscando endereço de transmissão...";
+
+                const endereco = await buscarEndereco(dados.lat, dados.lon);
+                dados.endereco = endereco;
+
+                // Envia dados para o Realtime Database
+                await set(ref(db, `veiculos/${vID}/atual`), dados);
+                await push(ref(db, `veiculos/${vID}/historico`), dados);
+
+                const pos = [dados.lat, dados.lon];
+                historicoRota.push(pos);
+                if (historicoRota.length > 50) historicoRota.shift();
+
+                // Atualiza marcador e mapa
+                marcador.setLatLng(pos);
+                map.flyTo(pos, 17);
+
+                // Desenha rastro da rota de forma limpa
+                if (linhaRota) map.removeLayer(linhaRota);
+                linhaRota = L.polyline(historicoRota, { color: '#00ff88', weight: 5, opacity: 0.8 }).addTo(map);
+
+                marcador.bindPopup(`<b>${vID}</b><br>📍 ${endereco.rua}<br>🚗 ${dados.velocidade} km/h`).openPopup();
+
+                statusText.innerHTML = `✅ Transmitindo com Sucesso!<br>📍 ${endereco.rua}<br>🚗 ${dados.velocidade} km/h | 🎯 Precisão: ${dados.acuracia}m`;
+
+                // Atualiza interface do painel
+                totalRegistros++;
+                document.getElementById('metricsGrid').style.display = 'grid';
+                document.getElementById('mv-vel').textContent = dados.velocidade;
+                document.getElementById('mv-acc').textContent = dados.acuracia;
+                document.getElementById('mv-pts').textContent = totalRegistros;
+                document.getElementById('mv-time').textContent = dados.hora;
+
+                document.getElementById('statusDot').className = 'status-dot active';
+                
+                const sig = document.getElementById('gpsSignal');
+                sig.className = 'gps-signal';
+                if (Number(dados.acuracia) <= 40) {
+                    sig.classList.add('active');
+                } else {
+                    sig.classList.add('weak');
+                }
+
+            } catch (e) {
+                mostrarErro("Firebase", e.message);
+            }
+        }
+
+        window.atualizarLocalizacao = function () {
+            const btn = document.getElementById('btnAtualizar');
+            if (btn) btn.classList.add('loading');
+
+            // Configurações suavizadas para mobile (evita o erro 'Timeout expired')
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    if (btn) btn.classList.remove('loading');
+
+                    const dadosGPS = {
+                        lat: pos.coords.latitude,
+                        lon: pos.coords.longitude,
+                        hora: new Date().toLocaleTimeString(),
+                        timestamp: Date.now(),
+                        acuracia: Number(pos.coords.accuracy).toFixed(1),
+                        velocidade: pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0
+                    };
+
+                    await enviarDadosParaFirebase(dadosGPS);
+                },
+                (err) => {
+                    if (btn) btn.classList.remove('loading');
+                    // Mensagem amigável caso a permissão do aparelho esteja desligada
+                    mostrarErro("GPS", "Sem resposta do hardware. Verifique se a 'Localização/GPS' está ativa no celular.");
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 10000, // Permite usar última posição em cache se o satélite demorar
+                    timeout: 20000     // 20 segundos de tolerância antes de dar timeout
+                }
+            );
+        };
+
+        window.centralizarMapa = function() {
+            if (historicoRota.length > 0) {
+                map.flyTo(historicoRota[historicoRota.length - 1], 17);
+            }
+        };
+
+        window.limparRota = function() {
+            historicoRota = [];
+            if (linhaRota) map.removeLayer(linhaRota);
+            statusText.innerHTML = "Histórico de rota limpo localmente.";
+        };
+
+        // Loop automático a cada 8 segundos
+        setInterval(window.atualizarLocalizacao, 8000);
+        
+        // Execução inicial imediata
+        window.atualizarLocalizacao();
+    </script>
 </body>
 </html>
