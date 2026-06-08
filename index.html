@@ -93,7 +93,7 @@
             height: 320px;
             width: 100%;
             border-radius: 10px;
-            background: #1e1e1e;
+            background: #252525;
         }
 
         .map-wrapper {
@@ -353,11 +353,9 @@
         function initMap() {
             map = L.map('map').setView([-23.5505, -46.6333], 16);
             
-            // Servidor CARTO (Dark Matter) - Não bloqueia requisições e tem visual Dark incrível
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '© CartoDB © OpenStreetMap',
-                subdomains: 'abcd',
-                maxZoom: 20
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 19
             }).addTo(map);
 
             marcador = L.marker([-23.5505, -46.6333], { icon: carroIcone }).addTo(map);
@@ -373,26 +371,31 @@
 
         async function buscarEndereco(lat, lon) {
             try {
-                const resposta = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                // Adicionado accept-language=pt-BR para garantir respostas em português
+                const resposta = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=pt-BR`);
                 const dados = await resposta.json();
+                
+                // Mapeia os dados coletando rua, bairro, cidade e o estado (UF)
                 return {
                     rua: dados.address.road || "Rua não identificada",
-                    bairro: dados.address.suburb || dados.address.neighbourhood || "",
-                    cidade: dados.address.city || ""
+                    bairro: dados.address.suburb || dados.address.neighbourhood || dados.address.village || "Bairro não identificado",
+                    cidade: dados.address.city || dados.address.town || dados.address.municipality || "Cidade não identificada",
+                    uf: dados.address.state ? dados.address.state : "" 
                 };
             } catch {
-                return { rua: "Posição capturada", bairro: "", cidade: "" };
+                return { rua: "Posição registrada", bairro: "", cidade: "", uf: "" };
             }
         }
 
         async function enviarDadosParaFirebase(dados) {
             try {
                 const vID = document.getElementById('veiculoID').value || "VEICULO-01";
-                statusText.innerHTML = "📡 Buscando endereço...";
+                statusText.innerHTML = "📡 Buscando endereço de transmissão...";
 
                 const endereco = await buscarEndereco(dados.lat, dados.lon);
                 dados.endereco = endereco;
 
+                // Salva a estrutura completa mapeada no Firebase
                 await set(ref(db, `veiculos/${vID}/atual`), dados);
                 await push(ref(db, `veiculos/${vID}/historico`), dados);
 
@@ -406,9 +409,14 @@
                 if (linhaRota) map.removeLayer(linhaRota);
                 linhaRota = L.polyline(historicoRota, { color: '#00ff88', weight: 5, opacity: 0.8 }).addTo(map);
 
-                marcador.bindPopup(`<b>${vID}</b><br>📍 ${endereco.rua}<br>🚗 ${dados.velocidade} km/h`).openPopup();
+                // Formata a string de endereço legível
+                const enderecoCompleto = `${endereco.rua}, Bairro: ${endereco.bairro} - ${endereco.cidade}/${endereco.uf}`;
 
-                statusText.innerHTML = `✅ Transmitindo Prontamente!<br>📍 ${endereco.rua}<br>🚗 ${dados.velocidade} km/h | 🎯 Precisão: ${dados.acuracia}m`;
+                // Atualiza o balão do mapa (Popup)
+                marcador.bindPopup(`<b>${vID}</b><br>📍 ${enderecoCompleto}<br>🚗 ${dados.velocidade} km/h`).openPopup();
+
+                // Atualiza o painel inferior de status do sistema
+                statusText.innerHTML = `✅ Transmitindo com Sucesso!<br>📍 <b>Endereço:</b> ${enderecoCompleto}<br>🚗 <b>Velocidade:</b> ${dados.velocidade} km/h | 🎯 <b>Precisão:</b> ${dados.acuracia}m`;
 
                 totalRegistros++;
                 document.getElementById('metricsGrid').style.display = 'grid';
@@ -453,13 +461,12 @@
                 },
                 (err) => {
                     if (btn) btn.classList.remove('loading');
-                    statusText.innerHTML = "❌ Erro de permissão: Vá nas configurações do seu celular e mude as Permissões deste App para permitir 'Localização'.";
-                    mostrarErro("GPS", "Bloqueado pelo sistema operacional do celular.");
+                    mostrarErro("GPS", "Sem resposta do hardware. Verifique se a 'Localização/GPS' está ativa no celular.");
                 },
                 {
                     enableHighAccuracy: true,
-                    maximumAge: 5000, 
-                    timeout: 15000     
+                    maximumAge: 10000,
+                    timeout: 20000 
                 }
             );
         };
@@ -470,13 +477,13 @@
             }
         };
 
-        window.window.limparRota = function() {
+        window.limparRota = function() {
             historicoRota = [];
             if (linhaRota) map.removeLayer(linhaRota);
-            statusText.innerHTML = "Histórico de tela limpo.";
+            statusText.innerHTML = "Histórico de rota limpo localmente.";
         };
 
-        setInterval(window.atualizarLocalizacao, 10000); // 10s para estabilizar tráfego mobile
+        setInterval(window.atualizarLocalizacao, 8000);
         window.atualizarLocalizacao();
     </script>
 </body>
