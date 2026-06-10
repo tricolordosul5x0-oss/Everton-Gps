@@ -107,6 +107,95 @@ th{
     line-height:1.7;
 }
 
+/* ── ABAS ── */
+.abas{
+    display:flex;
+    gap:6px;
+    margin-bottom:10px;
+}
+
+.aba{
+    flex:1;
+    padding:6px 0;
+    background:#1a1a1a;
+    border:1px solid #333;
+    border-radius:6px;
+    color:#aaa;
+    font-size:.78em;
+    cursor:pointer;
+    text-align:center;
+    transition:all .2s;
+}
+
+.aba.ativa{
+    background:var(--primary);
+    color:#000;
+    font-weight:bold;
+    border-color:var(--primary);
+}
+
+.conteudo-aba{
+    display:none;
+    height:195px;
+    overflow-y:auto;
+}
+
+.conteudo-aba.visivel{
+    display:block;
+}
+
+/* ── OFFLINE BADGE ── */
+.badge-offline{
+    background:#ff9800;
+    color:#000;
+    font-size:.7em;
+    padding:2px 7px;
+    border-radius:10px;
+    margin-left:5px;
+    vertical-align:middle;
+}
+
+/* ── PARADA ── */
+.parada-item{
+    background:#1a1a1a;
+    border-left:3px solid #ff9800;
+    border-radius:6px;
+    padding:8px 10px;
+    margin-bottom:8px;
+    font-size:.82em;
+}
+
+.parada-item .dur{
+    color:#ff9800;
+    font-weight:bold;
+}
+
+/* ── FILA OFFLINE ── */
+.offline-item{
+    background:#1a1a1a;
+    border-left:3px solid #ff5722;
+    border-radius:6px;
+    padding:8px 10px;
+    margin-bottom:8px;
+    font-size:.82em;
+}
+
+.offline-item .status-sync{
+    font-size:.75em;
+    color:#4caf50;
+}
+
+/* ── INDICADOR DE FILA ── */
+#indicadorOffline{
+    display:none;
+    background:#ff5722;
+    color:white;
+    font-size:.75em;
+    padding:3px 10px;
+    border-radius:12px;
+    margin-left:8px;
+}
+
 @media(max-width:700px){
 
     .painel{
@@ -126,6 +215,7 @@ th{
 
 <div class="logo">
 🛰️ Everton GPS PRO
+<span id="indicadorOffline">📵 <span id="qtdOffline">0</span> offline</span>
 </div>
 
 <select id="seletorVeiculo"
@@ -192,38 +282,46 @@ Offline
 
 <div class="card">
 
+<!-- ABAS -->
+<div class="abas">
+    <button class="aba ativa" onclick="mudarAba('historico',this)">📋 Histórico</button>
+    <button class="aba" onclick="mudarAba('paradas',this)">🅿️ Paradas</button>
+    <button class="aba" onclick="mudarAba('offline',this)">📵 Retroativo</button>
+</div>
+
+<!-- ABA: HISTÓRICO (original) -->
+<div id="aba-historico" class="conteudo-aba visivel">
 <table>
-
 <thead>
-
 <tr>
-
 <th>Hora</th>
-
 <th>Local</th>
-
 <th>Vel.</th>
-
 </tr>
-
 </thead>
-
 <tbody id="tabela-admin-corpo">
-
 <tr>
-
-<td colspan="3"
-style="text-align:center;color:#777">
-
+<td colspan="3" style="text-align:center;color:#777">
 Aguardando dados...
-
 </td>
-
 </tr>
-
 </tbody>
-
 </table>
+</div>
+
+<!-- ABA: PARADAS -->
+<div id="aba-paradas" class="conteudo-aba">
+<div id="lista-paradas">
+<p style="color:#777;text-align:center;margin-top:20px">Calculando paradas...</p>
+</div>
+</div>
+
+<!-- ABA: RETROATIVO OFFLINE -->
+<div id="aba-offline" class="conteudo-aba">
+<div id="lista-offline">
+<p style="color:#777;text-align:center;margin-top:20px">Nenhum registro offline pendente.</p>
+</div>
+</div>
 
 </div>
 
@@ -242,6 +340,8 @@ import {
     getDatabase,
     ref,
     onValue,
+    set,
+    push,
     query,
     limitToLast
 }
@@ -280,6 +380,12 @@ let marcadorVeiculo;
 let linhaPercurso;
 let ultimaRota = [];
 
+// ── Marcadores de parada no mapa ──
+let marcadoresParada = [];
+
+// ── Chave para fila offline no localStorage ──
+const CHAVE_OFFLINE = 'gps_fila_offline';
+
 const carroIcone = L.icon({
 
     iconUrl:
@@ -288,6 +394,23 @@ const carroIcone = L.icon({
     iconSize:[42,42],
 
     iconAnchor:[21,21]
+});
+
+const paradaIcone = L.divIcon({
+    className:'',
+    html:`<div style="
+        background:#ff9800;
+        color:#000;
+        border-radius:50%;
+        width:22px;height:22px;
+        display:flex;align-items:center;
+        justify-content:center;
+        font-size:13px;font-weight:bold;
+        border:2px solid #fff;
+        box-shadow:0 0 6px #ff9800;
+    ">🅿</div>`,
+    iconSize:[22,22],
+    iconAnchor:[11,11]
 });
 
 function initMap(){
@@ -306,6 +429,279 @@ function initMap(){
 }
 
 initMap();
+
+// ═══════════════════════════════════════════
+// CONTROLE DE ABAS
+// ═══════════════════════════════════════════
+window.mudarAba = function(nome, btn){
+    document.querySelectorAll('.conteudo-aba')
+        .forEach(el=>el.classList.remove('visivel'));
+    document.querySelectorAll('.aba')
+        .forEach(el=>el.classList.remove('ativa'));
+    document.getElementById('aba-'+nome)
+        .classList.add('visivel');
+    btn.classList.add('ativa');
+};
+
+// ═══════════════════════════════════════════
+// FILA OFFLINE — salvar / carregar / sincronizar
+// ═══════════════════════════════════════════
+
+function carregarFilaOffline(){
+    try{
+        return JSON.parse(
+            localStorage.getItem(CHAVE_OFFLINE) || '[]'
+        );
+    }catch(e){ return []; }
+}
+
+function salvarFilaOffline(fila){
+    localStorage.setItem(
+        CHAVE_OFFLINE,
+        JSON.stringify(fila)
+    );
+}
+
+function adicionarPontoOffline(ponto){
+    const fila = carregarFilaOffline();
+    // evitar duplicatas pelo timestamp
+    if(!fila.find(p=>p.timestamp===ponto.timestamp)){
+        fila.push({...ponto, _sincronizado:false});
+        salvarFilaOffline(fila);
+    }
+    atualizarIndicadorOffline();
+    renderizarListaOffline();
+}
+
+function atualizarIndicadorOffline(){
+    const fila = carregarFilaOffline();
+    const pendentes = fila.filter(p=>!p._sincronizado);
+    const ind = document.getElementById('indicadorOffline');
+    const qtd = document.getElementById('qtdOffline');
+    if(pendentes.length > 0){
+        ind.style.display = 'inline-block';
+        qtd.textContent = pendentes.length;
+    }else{
+        ind.style.display = 'none';
+    }
+}
+
+async function sincronizarFilaOffline(idVeiculo){
+    const fila = carregarFilaOffline();
+    let alterou = false;
+
+    for(let i=0; i<fila.length; i++){
+        if(fila[i]._sincronizado) continue;
+        try{
+            const novoRef = push(
+                ref(db,`veiculos/${idVeiculo}/historico`)
+            );
+            const payload = {...fila[i]};
+            delete payload._sincronizado;
+            await set(novoRef, payload);
+            fila[i]._sincronizado = true;
+            alterou = true;
+        }catch(e){
+            // sem conexão, tenta na próxima vez
+            break;
+        }
+    }
+
+    if(alterou){
+        salvarFilaOffline(fila);
+        atualizarIndicadorOffline();
+        renderizarListaOffline();
+    }
+}
+
+function renderizarListaOffline(){
+    const fila = carregarFilaOffline();
+    const lista = document.getElementById('lista-offline');
+
+    if(!fila.length){
+        lista.innerHTML =
+        '<p style="color:#777;text-align:center;margin-top:20px">Nenhum registro offline pendente.</p>';
+        return;
+    }
+
+    // mostra mais recentes primeiro
+    const itens = [...fila].reverse();
+
+    lista.innerHTML = itens.map(p=>`
+        <div class="offline-item">
+            <div>
+                <b>${p.hora || new Date(p.timestamp).toLocaleTimeString('pt-BR')}</b>
+                ${p._sincronizado
+                    ? '<span class="status-sync">✅ Sincronizado</span>'
+                    : '<span style="color:#ff5722;font-size:.75em">⏳ Pendente</span>'}
+            </div>
+            <div style="margin-top:4px;color:#ccc">
+                📍 ${p.endereco?.rua || p.endereco?.local || 'Local desconhecido'}<br>
+                🏘️ ${p.endereco?.bairro || ''} &nbsp;
+                🏙️ ${p.endereco?.cidade || ''}
+            </div>
+            <div style="margin-top:4px;color:#aaa">
+                🚗 ${p.velocidade || 0} km/h &nbsp;|&nbsp;
+                🛰️ ${p.acuracia || '-'}m
+            </div>
+        </div>
+    `).join('');
+}
+
+// ═══════════════════════════════════════════
+// DETECTAR PARADAS
+// ═══════════════════════════════════════════
+
+// Uma "parada" = sequência de pontos onde
+// a velocidade < 5 km/h por >= 2 minutos
+// e dentro de raio de 50m entre si
+
+function detectarParadas(pontos){
+    const paradas = [];
+    const VEL_PARADA = 5;         // km/h
+    const TEMPO_MIN  = 2 * 60000; // 2 min em ms
+    const RAIO_MAX   = 50;        // metros
+
+    let grupoInicio = null;
+    let grupoUlt   = null;
+    let grupoCentro = null;
+
+    for(let i=0; i<pontos.length; i++){
+        const p = pontos[i];
+        const parado = (p.velocidade || 0) < VEL_PARADA;
+
+        if(parado){
+            if(!grupoInicio){
+                grupoInicio = p;
+                grupoUlt   = p;
+                grupoCentro = { lat: p.lat, lon: p.lon };
+            }else{
+                const dist = distanciaMetros(
+                    grupoCentro.lat, grupoCentro.lon,
+                    p.lat, p.lon
+                );
+                if(dist <= RAIO_MAX){
+                    grupoUlt = p;
+                }else{
+                    // saiu do raio: finaliza grupo anterior, inicia novo
+                    const dur = grupoUlt.timestamp - grupoInicio.timestamp;
+                    if(dur >= TEMPO_MIN){
+                        paradas.push({
+                            inicio: grupoInicio,
+                            fim:    grupoUlt,
+                            duracao: dur,
+                            lat: grupoCentro.lat,
+                            lon: grupoCentro.lon
+                        });
+                    }
+                    grupoInicio = p;
+                    grupoUlt   = p;
+                    grupoCentro = { lat: p.lat, lon: p.lon };
+                }
+            }
+        }else{
+            if(grupoInicio && grupoUlt){
+                const dur = grupoUlt.timestamp - grupoInicio.timestamp;
+                if(dur >= TEMPO_MIN){
+                    paradas.push({
+                        inicio: grupoInicio,
+                        fim:    grupoUlt,
+                        duracao: dur,
+                        lat: grupoCentro.lat,
+                        lon: grupoCentro.lon
+                    });
+                }
+            }
+            grupoInicio = null;
+            grupoUlt   = null;
+            grupoCentro = null;
+        }
+    }
+
+    // fechar grupo no final se ainda aberto
+    if(grupoInicio && grupoUlt){
+        const dur = grupoUlt.timestamp - grupoInicio.timestamp;
+        if(dur >= TEMPO_MIN){
+            paradas.push({
+                inicio: grupoInicio,
+                fim:    grupoUlt,
+                duracao: dur,
+                lat: grupoCentro.lat,
+                lon: grupoCentro.lon
+            });
+        }
+    }
+
+    return paradas;
+}
+
+function formatarDuracao(ms){
+    const s = Math.round(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if(h > 0) return `${h}h ${m}min`;
+    return `${m} min`;
+}
+
+function renderizarParadas(paradas){
+    // limpa marcadores antigos
+    marcadoresParada.forEach(m=>m.remove());
+    marcadoresParada = [];
+
+    const lista = document.getElementById('lista-paradas');
+
+    if(!paradas.length){
+        lista.innerHTML =
+        '<p style="color:#777;text-align:center;margin-top:20px">Nenhuma parada detectada hoje.</p>';
+        return;
+    }
+
+    // mais recentes primeiro
+    const ordenadas = [...paradas].reverse();
+
+    lista.innerHTML = ordenadas.map((p,i)=>`
+        <div class="parada-item">
+            <div>
+                🅿️ <b>Parada ${paradas.length - i}</b>
+                &nbsp;
+                <span class="dur">${formatarDuracao(p.duracao)}</span>
+            </div>
+            <div style="margin-top:5px;color:#ccc;font-size:.8em">
+                📍 ${p.inicio.endereco?.rua || p.inicio.endereco?.local || 'Local desconhecido'}<br>
+                🏘️ ${p.inicio.endereco?.bairro || ''} &nbsp;
+                🏙️ ${p.inicio.endereco?.cidade || ''}
+            </div>
+            <div style="margin-top:4px;color:#aaa;font-size:.78em">
+                🕐 ${p.inicio.hora || '-'} → ${p.fim.hora || '-'}
+            </div>
+        </div>
+    `).join('');
+
+    // adiciona marcadores no mapa
+    paradas.forEach((p,i)=>{
+        const m = L.marker(
+            [p.lat, p.lon],
+            { icon: paradaIcone }
+        ).addTo(map);
+
+        m.bindPopup(`
+            <div class="popup-info">
+            🅿️ <b>Parada ${i+1}</b><br><br>
+            📍 ${p.inicio.endereco?.rua || 'Local desconhecido'}<br>
+            🏘️ ${p.inicio.endereco?.bairro || ''}<br>
+            🏙️ ${p.inicio.endereco?.cidade || ''}<br><br>
+            ⏱️ <b>Duração:</b> ${formatarDuracao(p.duracao)}<br>
+            🕐 ${p.inicio.hora || '-'} → ${p.fim.hora || '-'}
+            </div>
+        `);
+
+        marcadoresParada.push(m);
+    });
+}
+
+// ═══════════════════════════════════════════
+// LÓGICA ORIGINAL — intacta
+// ═══════════════════════════════════════════
 
 function distanciaMetros(
 lat1,lon1,
@@ -539,6 +935,9 @@ function monitorarVeiculo(idVeiculo){
         map.flyTo(pos, 17, {
             duration:1.5
         });
+
+        // ── Tenta sincronizar fila offline a cada atualização ──
+        sincronizarFilaOffline(idVeiculo);
     });
 
     const historicoRef =
@@ -618,6 +1017,10 @@ function monitorarVeiculo(idVeiculo){
             pontosFiltrados
         );
 
+        // ── DETECTAR E RENDERIZAR PARADAS ──
+        const paradas = detectarParadas(listaPontos);
+        renderizarParadas(paradas);
+
         const ultimos10 =
         [...listaPontos]
 
@@ -686,6 +1089,30 @@ function monitorarVeiculo(idVeiculo){
     });
 }
 
+// ── Monitorar conexão do navegador para capturar pontos offline ──
+// O transmissor deve chamar window.registrarPontoGPS(ponto)
+// quando tentar enviar um ponto sem conexão.
+// Aqui ficamos ouvindo o evento customizado "gps:ponto-offline"
+// que o transmissor pode disparar na mesma página/app.
+
+window.addEventListener('gps:ponto-offline', (e)=>{
+    const ponto = e.detail;
+    if(ponto && ponto.timestamp){
+        adicionarPontoOffline(ponto);
+    }
+});
+
+// Exposto globalmente para o transmissor chamar diretamente
+window.registrarPontoOffline = function(ponto){
+    adicionarPontoOffline(ponto);
+};
+
+// ── Ao recuperar conexão, tenta sincronizar ──
+window.addEventListener('online', ()=>{
+    const seletor = document.getElementById('seletorVeiculo');
+    sincronizarFilaOffline(seletor.value);
+});
+
 window.addEventListener(
 'DOMContentLoaded',()=>{
 
@@ -693,6 +1120,10 @@ window.addEventListener(
     document.getElementById(
         'seletorVeiculo'
     );
+
+    // carregar fila offline salva anteriormente
+    atualizarIndicadorOffline();
+    renderizarListaOffline();
 
     monitorarVeiculo(
         seletor.value
