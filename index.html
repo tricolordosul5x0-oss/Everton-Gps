@@ -1,14 +1,11 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Everton GPS PRO</title>
-
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-
     <style>
         :root {
             --primary: #00ff88;
@@ -18,675 +15,843 @@
             --warn: #ffaa00;
             --danger: #ff4455;
             --card2: #252525;
-            --glow: 0 0 18px rgba(0,255,136,0.35);
             --radius: 12px;
+            --stop-color: #ff6b35;
         }
+        * { box-sizing: border-box; }
+        body { margin:0; padding:10px; background:var(--bg); color:white; font-family:'Segoe UI',sans-serif; }
 
-        body {
-            margin: 0;
-            padding: 10px;
-            background: var(--bg);
-            color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
+        /* ── Header ── */
         header {
-            background: var(--card);
-            padding: 15px;
-            border-bottom: 2px solid var(--primary);
-            text-align: center;
-            margin-bottom: 10px;
-            border-radius: 10px;
-            position: relative;
-            overflow: hidden;
+            background:var(--card); padding:15px; border-bottom:2px solid var(--primary);
+            text-align:center; margin-bottom:10px; border-radius:10px;
+            position:relative; overflow:hidden;
         }
-
         header::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--primary), var(--accent2), transparent);
-            animation: scanline 3s linear infinite;
+            content:''; position:absolute; top:0; left:0; right:0; height:2px;
+            background:linear-gradient(90deg,transparent,var(--primary),var(--accent2),transparent);
+            animation:scanline 3s linear infinite;
         }
+        @keyframes scanline { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+        .header-inner { display:flex; align-items:center; justify-content:center; gap:12px; }
+        .gps-signal { display:flex; align-items:flex-end; gap:3px; height:20px; }
+        .gps-signal span { width:4px; border-radius:2px; background:#333; transition:background .4s; }
+        .gps-signal span:nth-child(1){height:5px} .gps-signal span:nth-child(2){height:10px}
+        .gps-signal span:nth-child(3){height:15px} .gps-signal span:nth-child(4){height:20px}
+        .gps-signal.active span { background:var(--primary); animation:pulse-bar 1.4s ease-in-out infinite; }
+        .gps-signal.weak span   { background:var(--warn); }
+        @keyframes pulse-bar { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-        @keyframes scanline {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        .header-inner {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-        }
-
-        .gps-signal {
-            display: flex;
-            align-items: flex-end;
-            gap: 3px;
-            height: 20px;
-        }
-
-        .gps-signal span {
-            width: 4px;
-            border-radius: 2px;
-            background: #333;
-            transition: background 0.4s, height 0.4s;
-        }
-
-        .gps-signal span:nth-child(1) { height: 5px; }
-        .gps-signal span:nth-child(2) { height: 10px; }
-        .gps-signal span:nth-child(3) { height: 15px; }
-        .gps-signal span:nth-child(4) { height: 20px; }
-        
-        .gps-signal.active span { background: var(--primary); animation: pulse-bar 1.4s ease-in-out infinite; }
-        .gps-signal.weak span { background: var(--warn); }
-        
-        @keyframes pulse-bar {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-
-        #map {
-            height: 320px;
-            width: 100%;
-            border-radius: 10px;
-            background: #252525;
-        }
-
-        .map-wrapper {
-            position: relative;
-        }
-
+        /* ── Mapa ── */
+        #map { height:320px; width:100%; border-radius:10px; background:#252525; }
+        .map-wrapper { position:relative; }
         .map-controls-overlay {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
+            position:absolute; top:10px; right:10px; z-index:1000;
+            display:flex; flex-direction:column; gap:6px;
         }
-
         .map-btn {
-            width: 38px;
-            height: 38px;
-            border-radius: 8px;
-            background: rgba(30,30,30,0.92);
-            border: 1px solid rgba(0,255,136,0.3);
-            color: var(--primary);
-            font-size: 1.1em;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            backdrop-filter: blur(6px);
-            transition: background 0.2s, box-shadow 0.2s;
+            width:38px; height:38px; border-radius:8px;
+            background:rgba(30,30,30,.92); border:1px solid rgba(0,255,136,.3);
+            color:var(--primary); font-size:1.1em; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; padding:0;
+            backdrop-filter:blur(6px); transition:background .2s;
         }
+        #cacheInfo { font-size:.7em; color:#555; font-family:'Share Tech Mono',monospace; text-align:center; padding:4px 0 0; letter-spacing:1px; }
+        #cacheInfo.cached { color:#00aa55; }
 
-        .controls {
-            margin-top: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
+        /* ── Controls ── */
+        .controls { margin-top:15px; display:flex; flex-direction:column; gap:10px; }
         input {
-            padding: 12px;
-            border: 1px solid #2a2a2a;
-            border-radius: 8px;
-            background: #252525;
-            color: white;
-            font-size: 1em;
-            font-family: 'Share Tech Mono', monospace;
-            letter-spacing: 1px;
+            padding:12px; border:1px solid #2a2a2a; border-radius:8px;
+            background:#252525; color:white; font-size:1em;
+            font-family:'Share Tech Mono',monospace; letter-spacing:1px; width:100%;
         }
-
         button#btnAtualizar {
-            padding: 14px;
-            border: none;
-            border-radius: 8px;
-            background: linear-gradient(135deg, #00ff88 0%, #00c8ff 100%);
-            color: black;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 1.1em;
-            font-family: 'Rajdhani', sans-serif;
-            letter-spacing: 2px;
-            box-shadow: 0 4px 20px rgba(0,255,136,0.25);
+            padding:14px; border:none; border-radius:8px;
+            background:linear-gradient(135deg,#00ff88,#00c8ff); color:black;
+            font-weight:bold; cursor:pointer; font-size:1.1em;
+            font-family:'Rajdhani',sans-serif; letter-spacing:2px;
         }
+        button#btnAtualizar.loading { pointer-events:none; opacity:.7; }
 
-        button#btnAtualizar.loading {
-            pointer-events: none;
-            opacity: 0.7;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
-
+        /* ── Metrics ── */
+        .metrics-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
         .metric-card {
-            background: var(--card2);
-            border-radius: var(--radius);
-            padding: 12px 14px;
-            border: 1px solid #2a2a2a;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
+            background:var(--card2); border-radius:var(--radius); padding:12px 14px;
+            border:1px solid #2a2a2a; display:flex; flex-direction:column; gap:4px; transition:border-color .3s;
         }
+        .metric-card.stopped { border-color:var(--stop-color); box-shadow:0 0 10px rgba(255,107,53,.2); }
+        .metric-label { font-size:.68em; color:#888; text-transform:uppercase; letter-spacing:1px; font-family:'Share Tech Mono',monospace; }
+        .metric-value { font-family:'Rajdhani',sans-serif; font-size:1.5em; font-weight:700; color:var(--primary); }
+        .metric-unit  { font-size:.65em; color:#666; font-family:'Share Tech Mono',monospace; }
 
-        .metric-label {
-            font-size: 0.68em;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-family: 'Share Tech Mono', monospace;
-        }
-
-        .metric-value {
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 1.5em;
-            font-weight: 700;
-            color: var(--primary);
-        }
-
-        .metric-unit {
-            font-size: 0.65em;
-            color: #666;
-            font-family: 'Share Tech Mono', monospace;
-        }
-
+        /* ── Status ── */
         .status-box {
-            background: #252525;
-            padding: 20px 15px 15px 15px;
-            border-radius: 8px;
-            border: 1px solid #2a2a2a;
-            line-height: 1.8;
-            font-size: 1em;
-            position: relative;
+            background:#252525; padding:20px 15px 15px; border-radius:8px;
+            border:1px solid #2a2a2a; line-height:1.8; font-size:1em; position:relative;
         }
-
         .status-label-tag {
-            position: absolute;
-            top: -10px;
-            left: 12px;
-            background: var(--card2);
-            padding: 1px 8px;
-            font-size: 0.68em;
-            color: var(--primary);
-            border: 1px solid rgba(0,255,136,0.4);
-            border-radius: 4px;
-            font-family: 'Share Tech Mono', monospace;
+            position:absolute; top:-10px; left:12px; background:var(--card2);
+            padding:1px 8px; font-size:.68em; color:var(--primary);
+            border:1px solid rgba(0,255,136,.4); border-radius:4px; font-family:'Share Tech Mono',monospace;
         }
-
-        .status-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #444;
-            margin-right: 6px;
-            vertical-align: middle;
-        }
-
-        .status-dot.active { background: var(--primary); box-shadow: 0 0 8px var(--primary); }
-        .status-dot.warn { background: var(--warn); }
-        .status-dot.error { background: var(--danger); }
+        .status-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#444; margin-right:6px; vertical-align:middle; }
+        .status-dot.active { background:var(--primary); box-shadow:0 0 8px var(--primary); }
+        .status-dot.warn   { background:var(--warn);    box-shadow:0 0 8px var(--warn); }
+        .status-dot.error  { background:var(--danger);  box-shadow:0 0 8px var(--danger); }
+        .status-dot.stop   { background:var(--stop-color); box-shadow:0 0 8px var(--stop-color); }
 
         .error-log {
-            background: #3a1a1a;
-            border: 1px solid #ff4444;
-            color: #ff9999;
-            padding: 10px;
-            border-radius: 8px;
-            display: none;
-            font-size: .85em;
-            font-family: monospace;
-            max-height: 120px;
-            overflow-y: auto;
+            background:#3a1a1a; border:1px solid #ff4444; color:#ff9999;
+            padding:10px; border-radius:8px; display:none; font-size:.85em;
+            font-family:monospace; max-height:120px; overflow-y:auto;
         }
 
-        /* ── Offline badge ── */
+        /* ── Badges ── */
         #offlineBadge {
-            display: none;
-            align-items: center;
-            gap: 8px;
-            background: #2a1a00;
-            border: 1px solid var(--warn);
-            color: var(--warn);
-            border-radius: 8px;
-            padding: 10px 14px;
-            font-size: 0.82em;
-            font-family: 'Share Tech Mono', monospace;
-            letter-spacing: 1px;
+            display:none; align-items:center; gap:8px;
+            background:#2a1a00; border:1px solid var(--warn); color:var(--warn);
+            border-radius:8px; padding:10px 14px; font-size:.82em;
+            font-family:'Share Tech Mono',monospace; letter-spacing:1px;
         }
-        #offlineBadge.visible { display: flex; }
+        #offlineBadge.visible { display:flex; }
         #offlineBadge .badge-dot {
-            width: 8px; height: 8px;
-            border-radius: 50%;
-            background: var(--warn);
-            flex-shrink: 0;
-            animation: pulse-bar 1s ease-in-out infinite;
+            width:8px; height:8px; border-radius:50%; background:var(--warn);
+            flex-shrink:0; animation:pulse-bar 1s ease-in-out infinite;
         }
         #pendingCount {
-            margin-left: auto;
-            background: rgba(255,170,0,0.15);
-            border: 1px solid rgba(255,170,0,0.4);
-            border-radius: 4px;
-            padding: 1px 7px;
-            font-size: 0.9em;
+            margin-left:auto; background:rgba(255,170,0,.15);
+            border:1px solid rgba(255,170,0,.4); border-radius:4px; padding:1px 7px;
         }
+
+        #stopBadge {
+            display:none; align-items:center; gap:10px;
+            background:#2a1200; border:1px solid var(--stop-color); color:var(--stop-color);
+            border-radius:8px; padding:12px 14px; font-size:.85em;
+            font-family:'Share Tech Mono',monospace; letter-spacing:1px;
+            animation:stopPulse 2s ease-in-out infinite;
+        }
+        #stopBadge.visible { display:flex; }
+        @keyframes stopPulse {
+            0%,100%{border-color:var(--stop-color);box-shadow:0 0 0 rgba(255,107,53,0)}
+            50%{border-color:#ff9060;box-shadow:0 0 12px rgba(255,107,53,.35)}
+        }
+        #stopBadge .stop-icon { font-size:1.4em; flex-shrink:0; animation:pulse-bar 1.5s ease-in-out infinite; }
+        .stop-info { display:flex; flex-direction:column; gap:2px; flex:1; }
+        .stop-title { font-weight:700; font-size:.9em; letter-spacing:2px; }
+        .stop-detail { font-size:.75em; color:#ffaa80; }
+        #stopTimer {
+            background:rgba(255,107,53,.15); border:1px solid rgba(255,107,53,.4);
+            border-radius:4px; padding:2px 8px; font-size:1em; font-weight:700; white-space:nowrap;
+        }
+
+        /* ══════════════════════════════════════
+           PAINEL DE HISTÓRICO
+        ══════════════════════════════════════ */
+        #historicoPanel {
+            background:var(--card); border-radius:var(--radius);
+            border:1px solid #2a2a2a; overflow:hidden;
+        }
+        .hist-header {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:12px 14px; background:#1a1a1a; border-bottom:1px solid #2a2a2a;
+            cursor:pointer; user-select:none;
+        }
+        .hist-header-left { display:flex; align-items:center; gap:8px; font-family:'Rajdhani',sans-serif; font-size:1.05em; font-weight:700; letter-spacing:2px; color:var(--primary); }
+        .hist-toggle { color:#666; font-size:.8em; transition:transform .3s; }
+        .hist-toggle.open { transform:rotate(180deg); }
+
+        .hist-body { display:none; padding:12px; }
+        .hist-body.open { display:block; }
+
+        .hist-filters {
+            display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;
+        }
+        .hist-filters input { padding:8px 10px; font-size:.85em; }
+
+        .hist-filters-row {
+            display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:10px;
+        }
+        .hist-filters-row input { padding:8px 10px; font-size:.82em; }
+
+        .btn-buscar {
+            width:100%; padding:10px; border:none; border-radius:8px;
+            background:linear-gradient(135deg,#00cc66,#0099cc); color:black;
+            font-weight:700; cursor:pointer; font-family:'Rajdhani',sans-serif;
+            font-size:1em; letter-spacing:2px; margin-bottom:10px;
+        }
+        .btn-buscar:disabled { opacity:.5; pointer-events:none; }
+
+        #histResultados {
+            max-height:340px; overflow-y:auto;
+            display:flex; flex-direction:column; gap:6px;
+        }
+
+        .hist-item {
+            background:#1a1a1a; border:1px solid #2a2a2a; border-radius:8px;
+            padding:10px 12px; font-size:.82em; line-height:1.6;
+            cursor:pointer; transition:border-color .2s;
+        }
+        .hist-item:hover { border-color:rgba(0,255,136,.4); }
+        .hist-item.parada { border-left:3px solid var(--stop-color); }
+        .hist-item.retomada { border-left:3px solid var(--accent2); }
+        .hist-item-hora { color:var(--primary); font-family:'Share Tech Mono',monospace; font-weight:700; font-size:.95em; }
+        .hist-item-end  { color:#ccc; }
+        .hist-item-meta { color:#666; font-size:.9em; }
+        .hist-item-tipo { display:inline-block; padding:1px 6px; border-radius:3px; font-size:.8em; margin-left:6px; }
+        .hist-item-tipo.parada   { background:rgba(255,107,53,.2); color:var(--stop-color); }
+        .hist-item-tipo.retomada { background:rgba(0,200,255,.15); color:var(--accent2); }
+        .hist-item-tipo.normal   { background:rgba(0,255,136,.1);  color:var(--primary); }
+
+        .hist-empty {
+            text-align:center; color:#555; font-family:'Share Tech Mono',monospace;
+            font-size:.82em; padding:30px 0; letter-spacing:1px;
+        }
+        .hist-count {
+            font-size:.72em; color:#666; font-family:'Share Tech Mono',monospace;
+            text-align:right; padding:6px 0 2px; letter-spacing:1px;
+        }
+
+        #histMapBtn {
+            width:100%; padding:8px; border:1px solid rgba(0,255,136,.3); border-radius:8px;
+            background:transparent; color:var(--primary); cursor:pointer;
+            font-family:'Share Tech Mono',monospace; font-size:.8em; letter-spacing:1px;
+            margin-top:8px; display:none;
+        }
+        #histMapBtn.visible { display:block; }
     </style>
 </head>
-
 <body>
 
-    <header>
-        <div class="header-inner">
-            <h2 style="margin:0;font-family:'Rajdhani',sans-serif;letter-spacing:3px;font-size:1.35em">
-                🛰️ Everton GPS PRO
-            </h2>
-            <div class="gps-signal" id="gpsSignal">
-                <span></span><span></span><span></span><span></span>
-            </div>
-        </div>
-        <div style="font-size:0.68em;color:#888;font-family:'Share Tech Mono',monospace;letter-spacing:2px;margin-top:4px">
-            RASTREAMENTO EM TEMPO REAL
-        </div>
-    </header>
+<header>
+    <div class="header-inner">
+        <h2 style="margin:0;font-family:'Rajdhani',sans-serif;letter-spacing:3px;font-size:1.35em">🛰️ Everton GPS PRO</h2>
+        <div class="gps-signal" id="gpsSignal"><span></span><span></span><span></span><span></span></div>
+    </div>
+    <div style="font-size:.68em;color:#888;font-family:'Share Tech Mono',monospace;letter-spacing:2px;margin-top:4px">RASTREAMENTO EM TEMPO REAL</div>
+</header>
 
-    <div class="map-wrapper">
-        <div id="map"></div>
-        <div class="map-controls-overlay">
-            <button class="map-btn" title="Centralizar" onclick="window.centralizarMapa()">📍</button>
-            <button class="map-btn" title="Limpar rota" onclick="window.limparRota()">🗑️</button>
+<div class="map-wrapper">
+    <div id="map"></div>
+    <div class="map-controls-overlay">
+        <button class="map-btn" title="Centralizar"   onclick="window.centralizarMapa()">📍</button>
+        <button class="map-btn" title="Limpar rota"   onclick="window.limparRota()">🗑️</button>
+        <button class="map-btn" title="Cache offline" onclick="window.cachearAreaAtual()" id="btnCache">💾</button>
+    </div>
+</div>
+<div id="cacheInfo">🗺️ TILES: carregando da internet</div>
+
+<div class="controls">
+    <input type="text" id="veiculoID" value="VEICULO-01" placeholder="ID do veículo">
+
+    <div id="offlineBadge">
+        <span class="badge-dot"></span>
+        <span>MODO OFFLINE — Gravando localmente</span>
+        <span id="pendingCount">0 pendentes</span>
+    </div>
+
+    <div id="stopBadge">
+        <span class="stop-icon">🅿️</span>
+        <div class="stop-info">
+            <span class="stop-title">VEÍCULO PARADO</span>
+            <span class="stop-detail" id="stopAddress">Calculando endereço…</span>
+        </div>
+        <span id="stopTimer">0:00</span>
+    </div>
+
+    <button id="btnAtualizar" onclick="window.atualizarLocalizacao()">🛰️ ATUALIZAR LOCALIZAÇÃO</button>
+
+    <div class="metrics-grid" id="metricsGrid" style="display:none">
+        <div class="metric-card">
+            <span class="metric-label">Velocidade</span>
+            <span class="metric-value" id="mv-vel">0</span>
+            <span class="metric-unit">KM/H</span>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">Precisão GPS</span>
+            <span class="metric-value" id="mv-acc">—</span>
+            <span class="metric-unit">METROS</span>
+        </div>
+        <div class="metric-card" id="mc-pts">
+            <span class="metric-label">Pontos</span>
+            <span class="metric-value" id="mv-pts">0</span>
+            <span class="metric-unit">REGISTROS</span>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">Atualização</span>
+            <span class="metric-value" id="mv-time" style="font-size:1.1em">—</span>
+            <span class="metric-unit">HORÁRIO</span>
         </div>
     </div>
 
-    <div class="controls">
-        <input type="text" id="veiculoID" value="VEICULO-01" placeholder="ID do veículo">
-
-        <!-- Offline warning banner -->
-        <div id="offlineBadge">
-            <span class="badge-dot"></span>
-            <span>MODO OFFLINE — Gravando localmente</span>
-            <span id="pendingCount">0 pendentes</span>
-        </div>
-
-        <button id="btnAtualizar" onclick="window.atualizarLocalizacao()">
-            🛰️ ATUALIZAR LOCALIZAÇÃO
-        </button>
-
-        <div class="metrics-grid" id="metricsGrid" style="display:none">
-            <div class="metric-card">
-                <span class="metric-label">Velocidade</span>
-                <span class="metric-value" id="mv-vel">0</span>
-                <span class="metric-unit">KM/H</span>
-            </div>
-            <div class="metric-card">
-                <span class="metric-label">Precisão GPS</span>
-                <span class="metric-value" id="mv-acc">—</span>
-                <span class="metric-unit">METROS</span>
-            </div>
-            <div class="metric-card">
-                <span class="metric-label">Pontos</span>
-                <span class="metric-value" id="mv-pts">0</span>
-                <span class="metric-unit">REGISTROS</span>
-            </div>
-            <div class="metric-card">
-                <span class="metric-label">Atualização</span>
-                <span class="metric-value" id="mv-time" style="font-size:1.1em">—</span>
-                <span class="metric-unit">HORÁRIO</span>
-            </div>
-        </div>
-
-        <div class="status-box">
-            <span class="status-label-tag">● SISTEMA</span>
-            <span class="status-dot" id="statusDot"></span>
-            <div id="statusText">Inicializando GPS...</div>
-        </div>
-
-        <div id="errorLog" class="error-log"></div>
+    <div class="status-box">
+        <span class="status-label-tag">● SISTEMA</span>
+        <span class="status-dot" id="statusDot"></span>
+        <div id="statusText">Inicializando GPS...</div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <div id="errorLog" class="error-log"></div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    <!-- ══════════════════════════════════════
+         PAINEL HISTÓRICO
+    ══════════════════════════════════════ -->
+    <div id="historicoPanel">
+        <div class="hist-header" onclick="toggleHistorico()">
+            <div class="hist-header-left">
+                🗂️ HISTÓRICO DE REGISTROS
+            </div>
+            <span class="hist-toggle" id="histToggleIcon">▼</span>
+        </div>
+        <div class="hist-body" id="histBody">
+            <div class="hist-filters">
+                <div>
+                    <div style="font-size:.68em;color:#666;font-family:'Share Tech Mono',monospace;margin-bottom:4px;letter-spacing:1px">DATA INÍCIO</div>
+                    <input type="date" id="filtroDataInicio">
+                </div>
+                <div>
+                    <div style="font-size:.68em;color:#666;font-family:'Share Tech Mono',monospace;margin-bottom:4px;letter-spacing:1px">DATA FIM</div>
+                    <input type="date" id="filtroDataFim">
+                </div>
+            </div>
+            <div class="hist-filters-row">
+                <div>
+                    <div style="font-size:.68em;color:#666;font-family:'Share Tech Mono',monospace;margin-bottom:4px;letter-spacing:1px">HORA INÍCIO</div>
+                    <input type="time" id="filtroHoraInicio">
+                </div>
+                <div>
+                    <div style="font-size:.68em;color:#666;font-family:'Share Tech Mono',monospace;margin-bottom:4px;letter-spacing:1px">HORA FIM</div>
+                    <input type="time" id="filtroHoraFim">
+                </div>
+                <div>
+                    <div style="font-size:.68em;color:#666;font-family:'Share Tech Mono',monospace;margin-bottom:4px;letter-spacing:1px">TIPO</div>
+                    <select id="filtroTipo" style="padding:8px 6px;border:1px solid #2a2a2a;border-radius:8px;background:#252525;color:white;font-size:.82em;width:100%">
+                        <option value="">Todos</option>
+                        <option value="normal">Normal</option>
+                        <option value="parada_detectada">Paradas</option>
+                        <option value="retomada_movimento">Retomadas</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn-buscar" id="btnBuscarHistorico" onclick="window.buscarHistorico()">🔍 BUSCAR REGISTROS</button>
+            <div id="histCount" class="hist-count"></div>
+            <div id="histResultados"><div class="hist-empty">Use os filtros acima para buscar registros</div></div>
+            <button id="histMapBtn" onclick="window.mostrarRotaHistorico()">🗺️ VER ROTA NO MAPA</button>
+        </div>
+    </div>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDwKIS8wL3D7OuaysVFWz3D7Oua",
-            authDomain: "everton-gps.firebaseapp.com",
-            databaseURL: "https://everton-gps-default-rtdb.firebaseio.com",
-            projectId: "everton-gps",
-            storageBucket: "everton-gps.appspot.com",
-            messagingSenderId: "688936933095",
-            appId: "1:688936933095:web:5508a8e1008f1b4020a1db",
-            measurementId: "G-X14EWTZN18"
-        };
+</div><!-- /controls -->
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+<!-- Service Worker inline -->
+<script>
+(function registerSW(){
+    const SW_CODE = `
+const CACHE = 'osm-tiles-v1';
+const ORIGINS = ['https://a.tile.openstreetmap.org','https://b.tile.openstreetmap.org','https://c.tile.openstreetmap.org'];
+self.addEventListener('install',  e => self.skipWaiting());
+self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
+self.addEventListener('fetch', e => {
+    const url = e.request.url;
+    if (!ORIGINS.some(o => url.startsWith(o))) return;
+    e.respondWith(caches.open(CACHE).then(async cache => {
+        const cached = await cache.match(e.request);
+        if (cached) return cached;
+        try { const r = await fetch(e.request); if(r.ok) cache.put(e.request,r.clone()); return r; }
+        catch { return new Response('',{status:404}); }
+    }));
+});
+self.addEventListener('message', async e => {
+    if(e.data==='count-cache'){
+        const c=await caches.open(CACHE); const k=await c.keys();
+        e.source.postMessage({type:'cache-count',count:k.length});
+    }
+});`;
+    try {
+        const blob = new Blob([SW_CODE],{type:'application/javascript'});
+        navigator.serviceWorker.register(URL.createObjectURL(blob),{scope:'/'})
+            .catch(e=>console.warn('[SW]',e.message));
+        navigator.serviceWorker.addEventListener('message', e => {
+            if(e.data?.type==='cache-count'){
+                const el=document.getElementById('cacheInfo');
+                el.textContent = e.data.count>0
+                    ? `🗺️ TILES EM CACHE: ${e.data.count} tiles offline`
+                    : '🗺️ TILES: carregando da internet';
+                el.className = e.data.count>0 ? 'cached' : '';
+            }
+        });
+    } catch(e){ console.warn('[SW Blob]',e.message); }
+})();
+</script>
 
-        const statusText = document.getElementById('statusText');
-        const errorLog   = document.getElementById('errorLog');
-        const offlineBadge   = document.getElementById('offlineBadge');
-        const pendingCountEl = document.getElementById('pendingCount');
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-        let map, marcador;
-        let historicoRota = [];
-        let totalRegistros = 0;
-        let linhaRota = null;
+<script type="module">
+import { initializeApp }               from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, set, push, get, query, orderByChild, startAt, endAt }
+                                       from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // ─────────────────────────────────────────────────────────────
-        //  IndexedDB  ·  banco: "gps_offline"  ·  store: "fila"
-        // ─────────────────────────────────────────────────────────────
-        const IDB_NAME    = 'gps_offline';
-        const IDB_VERSION = 1;
-        const STORE_NAME  = 'fila';
+const firebaseConfig = {
+    apiKey:            "AIzaSyDwKIS8wL3D7OuaysVFWz3D7Oua",
+    authDomain:        "everton-gps.firebaseapp.com",
+    databaseURL:       "https://everton-gps-default-rtdb.firebaseio.com",
+    projectId:         "everton-gps",
+    storageBucket:     "everton-gps.appspot.com",
+    messagingSenderId: "688936933095",
+    appId:             "1:688936933095:web:5508a8e1008f1b4020a1db",
+    measurementId:     "G-X14EWTZN18"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
 
-        function abrirIDB() {
-            return new Promise((resolve, reject) => {
-                const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-                req.onupgradeneeded = e => {
-                    const idb = e.target.result;
-                    if (!idb.objectStoreNames.contains(STORE_NAME)) {
-                        idb.createObjectStore(STORE_NAME, { autoIncrement: true });
-                    }
-                };
-                req.onsuccess = e => resolve(e.target.result);
-                req.onerror   = e => reject(e.target.error);
-            });
-        }
+// ── DOM ──────────────────────────────────────────────────────────
+const statusText     = document.getElementById('statusText');
+const errorLog       = document.getElementById('errorLog');
+const offlineBadge   = document.getElementById('offlineBadge');
+const pendingCountEl = document.getElementById('pendingCount');
+const stopBadge      = document.getElementById('stopBadge');
+const stopTimerEl    = document.getElementById('stopTimer');
+const stopAddressEl  = document.getElementById('stopAddress');
+const mcPts          = document.getElementById('mc-pts');
 
-        async function salvarNaFila(dados) {
-            const idb  = await abrirIDB();
-            const tx   = idb.transaction(STORE_NAME, 'readwrite');
-            const store = tx.objectStore(STORE_NAME);
-            store.add(dados);
-            return new Promise((res, rej) => {
-                tx.oncomplete = res;
-                tx.onerror    = () => rej(tx.error);
-            });
-        }
+// ── Estado ───────────────────────────────────────────────────────
+let map, marcador, linhaRota = null, stopMarker = null;
+let historicoRota = [];
+let totalRegistros = 0;
+let historicoResultados = []; // cache dos resultados da última busca
 
-        async function lerFila() {
-            const idb = await abrirIDB();
-            return new Promise((resolve, reject) => {
-                const tx    = idb.transaction(STORE_NAME, 'readonly');
-                const store = tx.objectStore(STORE_NAME);
-                const req   = store.getAll();
-                req.onsuccess = () => resolve(req.result);
-                req.onerror   = () => reject(req.error);
-            });
-        }
+// ── Parada ───────────────────────────────────────────────────────
+const STOP_RADIUS_M  = 30;
+const STOP_THRESHOLD = 120;
+let stopState = { active:false, lat:null, lon:null, since:null, alerted:false, address:'', timerInterval:null };
 
-        async function lerChavesDaFila() {
-            const idb = await abrirIDB();
-            return new Promise((resolve, reject) => {
-                const tx    = idb.transaction(STORE_NAME, 'readonly');
-                const store = tx.objectStore(STORE_NAME);
-                const req   = store.getAllKeys();
-                req.onsuccess = () => resolve(req.result);
-                req.onerror   = () => reject(req.error);
-            });
-        }
+function dist(la1,lo1,la2,lo2){
+    const R=6371000, dLat=(la2-la1)*Math.PI/180, dLon=(lo2-lo1)*Math.PI/180;
+    const a=Math.sin(dLat/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function fmtDur(s){ const m=Math.floor(s/60); return `${m}:${String(Math.floor(s%60)).padStart(2,'0')}`; }
 
-        async function removerDaFila(chave) {
-            const idb = await abrirIDB();
-            const tx   = idb.transaction(STORE_NAME, 'readwrite');
-            tx.objectStore(STORE_NAME).delete(chave);
-            return new Promise((res, rej) => {
-                tx.oncomplete = res;
-                tx.onerror    = () => rej(tx.error);
-            });
-        }
+function iniciarTimerParada(){
+    if(stopState.timerInterval) clearInterval(stopState.timerInterval);
+    stopState.timerInterval = setInterval(()=>{
+        if(!stopState.active||!stopState.since) return;
+        stopTimerEl.textContent = fmtDur((Date.now()-stopState.since)/1000);
+    },1000);
+}
+function pararTimerParada(){ if(stopState.timerInterval){ clearInterval(stopState.timerInterval); stopState.timerInterval=null; } }
 
-        async function contarFila() {
-            const chaves = await lerChavesDaFila();
-            return chaves.length;
-        }
+async function avaliarParada(lat, lon, velocidade){
+    const vel = Number(velocidade);
+    if(!stopState.active){ stopState={...stopState, active:true, lat, lon, since:Date.now(), alerted:false}; }
 
-        async function atualizarBadgeOffline() {
-            const n = await contarFila();
-            if (!navigator.onLine || n > 0) {
-                offlineBadge.classList.add('visible');
-                pendingCountEl.textContent = `${n} pendente${n !== 1 ? 's' : ''}`;
-            } else {
-                offlineBadge.classList.remove('visible');
+    const d = dist(stopState.lat, stopState.lon, lat, lon);
+    const secsParado = (Date.now()-stopState.since)/1000;
+
+    if(d > STOP_RADIUS_M || vel > 5){
+        if(stopState.alerted){
+            stopBadge.classList.remove('visible');
+            pararTimerParada();
+            if(stopMarker){ map.removeLayer(stopMarker); stopMarker=null; }
+            mcPts.classList.remove('stopped');
+            if(navigator.onLine){
+                const vID = document.getElementById('veiculoID').value||'VEICULO-01';
+                await push(ref(db,`veiculos/${vID}/historico`),{
+                    tipo:'retomada_movimento', lat, lon,
+                    duracaoParadaSegundos:Math.round(secsParado),
+                    timestamp:Date.now(), hora:new Date().toLocaleTimeString(),
+                    data:new Date().toLocaleDateString('pt-BR'),
+                    dataISO:new Date().toISOString().slice(0,10)
+                }).catch(()=>{});
             }
         }
+        stopState={active:true,lat,lon,since:Date.now(),alerted:false,address:'',timerInterval:stopState.timerInterval};
+        return;
+    }
 
-        // ─────────────────────────────────────────────────────────────
-        //  Sincronização da fila → Firebase
-        // ─────────────────────────────────────────────────────────────
-        let sincronizando = false;
+    if(secsParado >= STOP_THRESHOLD && !stopState.alerted){
+        stopState.alerted = true;
+        let endParada = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+        if(navigator.onLine){ const e=await buscarEndereco(lat,lon); if(e) endParada=`${e.rua}, ${e.bairro} — ${e.cidade}`; }
+        stopState.address = endParada;
+        stopAddressEl.textContent = endParada;
+        stopTimerEl.textContent = fmtDur(secsParado);
+        stopBadge.classList.add('visible');
+        mcPts.classList.add('stopped');
+        iniciarTimerParada();
 
-        async function sincronizarFila() {
-            if (sincronizando || !navigator.onLine) return;
-            sincronizando = true;
+        if(stopMarker) map.removeLayer(stopMarker);
+        const stopIcon = L.divIcon({
+            className:'',
+            html:`<div style="background:#ff6b35;border:2px solid #fff;border-radius:50%;width:18px;height:18px;box-shadow:0 0 10px rgba(255,107,53,.8)"></div>`,
+            iconSize:[18,18], iconAnchor:[9,9]
+        });
+        stopMarker = L.marker([lat,lon],{icon:stopIcon})
+            .bindPopup(`<b>🅿️ Parada detectada</b><br>${endParada}<br>⏱️ ${fmtDur(secsParado)}`)
+            .addTo(map).openPopup();
 
-            try {
-                const chaves = await lerChavesDaFila();
-                if (chaves.length === 0) { sincronizando = false; return; }
+        if(navigator.onLine){
+            const vID = document.getElementById('veiculoID').value||'VEICULO-01';
+            await push(ref(db,`veiculos/${vID}/historico`),{
+                tipo:'parada_detectada', lat, lon, endereco:endParada,
+                duracaoSegundos:Math.round(secsParado),
+                timestamp:Date.now(), hora:new Date().toLocaleTimeString(),
+                data:new Date().toLocaleDateString('pt-BR'),
+                dataISO:new Date().toISOString().slice(0,10)
+            }).catch(()=>{});
+        }
 
-                const idb = await abrirIDB();
+        document.getElementById('statusDot').className='status-dot stop';
+        statusText.innerHTML=`🅿️ <b>Veículo parado</b> há ${fmtDur(secsParado)}<br>📍 ${endParada}`;
+    }
+}
 
-                for (const chave of chaves) {
-                    // lê registro individual pela chave
-                    const item = await new Promise((res, rej) => {
-                        const tx  = idb.transaction(STORE_NAME, 'readonly');
-                        const req = tx.objectStore(STORE_NAME).get(chave);
-                        req.onsuccess = () => res(req.result);
-                        req.onerror   = () => rej(req.error);
-                    });
-                    if (!item) continue;
+// ── IndexedDB ────────────────────────────────────────────────────
+const IDB_NAME='gps_offline', STORE='fila';
+function abrirIDB(){
+    return new Promise((res,rej)=>{
+        const req=indexedDB.open(IDB_NAME,1);
+        req.onupgradeneeded=e=>{ const idb=e.target.result; if(!idb.objectStoreNames.contains(STORE)) idb.createObjectStore(STORE,{autoIncrement:true}); };
+        req.onsuccess=e=>res(e.target.result);
+        req.onerror=e=>rej(e.target.error);
+    });
+}
+async function salvarNaFila(d){ const idb=await abrirIDB(); const tx=idb.transaction(STORE,'readwrite'); tx.objectStore(STORE).add(d); return new Promise((r,j)=>{tx.oncomplete=r;tx.onerror=()=>j(tx.error);}); }
+async function lerChaves(){ const idb=await abrirIDB(); return new Promise((r,j)=>{ const tx=idb.transaction(STORE,'readonly'); const req=tx.objectStore(STORE).getAllKeys(); req.onsuccess=()=>r(req.result); req.onerror=()=>j(req.error); }); }
+async function lerItem(idb,chave){ return new Promise((r,j)=>{ const tx=idb.transaction(STORE,'readonly'); const req=tx.objectStore(STORE).get(chave); req.onsuccess=()=>r(req.result); req.onerror=()=>j(req.error); }); }
+async function removerDaFila(chave){ const idb=await abrirIDB(); const tx=idb.transaction(STORE,'readwrite'); tx.objectStore(STORE).delete(chave); return new Promise((r,j)=>{tx.oncomplete=r;tx.onerror=()=>j(tx.error);}); }
+async function contarFila(){ return (await lerChaves()).length; }
+async function atualizarBadge(){
+    const n=await contarFila();
+    if(!navigator.onLine||n>0){ offlineBadge.classList.add('visible'); pendingCountEl.textContent=`${n} pendente${n!==1?'s':''}`; }
+    else offlineBadge.classList.remove('visible');
+}
 
-                    const vID = item.vID || document.getElementById('veiculoID').value || 'VEICULO-01';
-                    await set(push(ref(db, `veiculos/${vID}/historico`)), item.dados);
-                    await removerDaFila(chave);
+// ── Sincronização COM busca de endereço retroativa ───────────────
+let sincronizando=false;
+async function sincronizarFila(){
+    if(sincronizando||!navigator.onLine) return;
+    sincronizando=true;
+    try {
+        const chaves=await lerChaves();
+        if(!chaves.length){ sincronizando=false; return; }
+        const idb=await abrirIDB();
+        let sincronizados=0;
+        for(const chave of chaves){
+            const item=await lerItem(idb,chave);
+            if(!item) continue;
+            const vID=item.vID||document.getElementById('veiculoID').value||'VEICULO-01';
+            const dados=item.dados;
+
+            // ── Busca endereço retroativamente se não tiver ──
+            if(!dados.endereco && dados.lat && dados.lon){
+                statusText.innerHTML=`🔄 Recuperando endereço offline ${sincronizados+1}/${chaves.length}...`;
+                const end=await buscarEndereco(dados.lat, dados.lon);
+                if(end){
+                    dados.endereco=end;
+                    dados.enderecoCompleto=`${end.rua}, ${end.bairro} — ${end.cidade}/${end.uf}`;
                 }
-
-                await atualizarBadgeOffline();
-                statusText.innerHTML = `✅ Fila sincronizada com o Firebase!`;
-            } catch (e) {
-                // Falha silenciosa — tentará novamente no próximo ciclo
-            } finally {
-                sincronizando = false;
+                // Respeita limite de 1 req/s do Nominatim
+                await new Promise(r=>setTimeout(r,1100));
             }
-        }
 
-        // ─────────────────────────────────────────────────────────────
-        //  Eventos de conectividade
-        // ─────────────────────────────────────────────────────────────
-        window.addEventListener('online',  () => {
-            atualizarBadgeOffline();
+            // Garante campos de data/hora para busca
+            if(!dados.dataISO && dados.timestamp){
+                const d=new Date(dados.timestamp);
+                dados.dataISO=d.toISOString().slice(0,10);
+                dados.data=d.toLocaleDateString('pt-BR');
+                dados.hora=dados.hora||d.toLocaleTimeString();
+            }
+
+            await push(ref(db,`veiculos/${vID}/historico`), dados);
+            await removerDaFila(chave);
+            sincronizados++;
+        }
+        await atualizarBadge();
+        statusText.innerHTML=`✅ ${sincronizados} registros sincronizados com endereços completos!`;
+    } catch(e){ console.warn('Sync error:',e); }
+    finally { sincronizando=false; }
+}
+
+window.addEventListener('online',  ()=>{ atualizarBadge(); sincronizarFila(); });
+window.addEventListener('offline', ()=>{ atualizarBadge(); });
+
+// ── Mapa ─────────────────────────────────────────────────────────
+const carroIcone=L.icon({ iconUrl:'https://cdn-icons-png.flaticon.com/512/744/744465.png', iconSize:[40,40], iconAnchor:[20,20] });
+function initMap(){
+    map=L.map('map').setView([-23.5505,-46.6333],16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+    marcador=L.marker([-23.5505,-46.6333],{icon:carroIcone}).addTo(map);
+}
+initMap();
+
+// ── Helpers ──────────────────────────────────────────────────────
+function mostrarErro(o,m){
+    errorLog.style.display='block'; errorLog.innerHTML+=`[${o}] ${m}<br>`;
+    document.getElementById('statusDot').className='status-dot error';
+    document.getElementById('gpsSignal').className='gps-signal';
+}
+
+async function buscarEndereco(lat,lon){
+    try {
+        const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=pt-BR`);
+        const d=await r.json();
+        return {
+            rua:    d.address.road||"Rua não identificada",
+            bairro: d.address.suburb||d.address.neighbourhood||d.address.village||"",
+            cidade: d.address.city||d.address.town||d.address.municipality||"",
+            uf:     d.address.state||""
+        };
+    } catch { return null; }
+}
+
+function atualizarMapaLocal(dados,vID,endereco){
+    const pos=[dados.lat,dados.lon];
+    historicoRota.push(pos);
+    if(historicoRota.length>50) historicoRota.shift();
+    marcador.setLatLng(pos); map.flyTo(pos,17);
+    if(linhaRota) map.removeLayer(linhaRota);
+    linhaRota=L.polyline(historicoRota,{color:'#00ff88',weight:5,opacity:.8}).addTo(map);
+    const endComp=endereco?`${endereco.rua}, ${endereco.bairro} — ${endereco.cidade}/${endereco.uf}`:`${dados.lat.toFixed(5)}, ${dados.lon.toFixed(5)}`;
+    marcador.bindPopup(`<b>${vID}</b><br>📍 ${endComp}<br>🚗 ${dados.velocidade} km/h`).openPopup();
+    totalRegistros++;
+    document.getElementById('metricsGrid').style.display='grid';
+    document.getElementById('mv-vel').textContent=dados.velocidade;
+    document.getElementById('mv-acc').textContent=dados.acuracia;
+    document.getElementById('mv-pts').textContent=totalRegistros;
+    document.getElementById('mv-time').textContent=dados.hora;
+    document.getElementById('statusDot').className='status-dot active';
+    const sig=document.getElementById('gpsSignal');
+    sig.className='gps-signal'; sig.classList.add(Number(dados.acuracia)<=40?'active':'weak');
+    return endComp;
+}
+
+// ── Envio principal ──────────────────────────────────────────────
+async function enviarDadosParaFirebase(dados){
+    const vID=document.getElementById('veiculoID').value||'VEICULO-01';
+    let endereco=null;
+    if(navigator.onLine){
+        statusText.innerHTML="📡 Buscando endereço de transmissão...";
+        endereco=await buscarEndereco(dados.lat,dados.lon);
+        if(endereco){
+            dados.endereco=endereco;
+            dados.enderecoCompleto=`${endereco.rua}, ${endereco.bairro} — ${endereco.cidade}/${endereco.uf}`;
+        }
+    }
+
+    // Campos indexáveis para busca por data/hora
+    const agora=new Date();
+    dados.dataISO   = agora.toISOString().slice(0,10);
+    dados.data      = agora.toLocaleDateString('pt-BR');
+    dados.tipo      = dados.tipo||'normal';
+
+    const endComp=atualizarMapaLocal(dados,vID,endereco);
+    await avaliarParada(dados.lat,dados.lon,dados.velocidade);
+
+    if(navigator.onLine){
+        try {
+            await set(ref(db,`veiculos/${vID}/atual`), dados);
+            await push(ref(db,`veiculos/${vID}/historico`), dados);
+            if(!stopState.alerted)
+                statusText.innerHTML=`✅ Transmitindo!<br>📍 <b>${endComp}</b><br>🚗 ${dados.velocidade} km/h | 🎯 ${dados.acuracia}m`;
             sincronizarFila();
-        });
-        window.addEventListener('offline', () => {
-            atualizarBadgeOffline();
-        });
+        } catch(e){ mostrarErro("Firebase",e.message); }
+    } else {
+        try {
+            await salvarNaFila({vID,dados});
+            if(!stopState.alerted)
+                statusText.innerHTML=`💾 Sem internet — salvo localmente.<br>📍 ${dados.lat.toFixed(5)}, ${dados.lon.toFixed(5)}<br>🚗 ${dados.velocidade} km/h`;
+        } catch(e){ mostrarErro("IndexedDB",e.message); }
+    }
+    await atualizarBadge();
+}
 
-        // ─────────────────────────────────────────────────────────────
-        //  Mapa
-        // ─────────────────────────────────────────────────────────────
-        const carroIcone = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png',
-            iconSize: [40, 40],
-            iconAnchor: [20, 20]
-        });
+// ── API pública ──────────────────────────────────────────────────
+window.atualizarLocalizacao=function(){
+    const btn=document.getElementById('btnAtualizar');
+    if(btn) btn.classList.add('loading');
+    navigator.geolocation.getCurrentPosition(
+        async pos=>{
+            if(btn) btn.classList.remove('loading');
+            await enviarDadosParaFirebase({
+                lat:pos.coords.latitude, lon:pos.coords.longitude,
+                hora:new Date().toLocaleTimeString(), timestamp:Date.now(),
+                acuracia:Number(pos.coords.accuracy).toFixed(1),
+                velocidade:pos.coords.speed?(pos.coords.speed*3.6).toFixed(0):0
+            });
+        },
+        err=>{ if(btn) btn.classList.remove('loading'); mostrarErro("GPS","Sem resposta do hardware. Verifique a Localização/GPS."); },
+        {enableHighAccuracy:true,maximumAge:10000,timeout:20000}
+    );
+};
 
-        function initMap() {
-            map = L.map('map').setView([-23.5505, -46.6333], 16);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap',
-                maxZoom: 19
-            }).addTo(map);
-            marcador = L.marker([-23.5505, -46.6333], { icon: carroIcone }).addTo(map);
+window.centralizarMapa=function(){ if(historicoRota.length>0) map.flyTo(historicoRota[historicoRota.length-1],17); };
+window.limparRota=function(){
+    historicoRota=[]; if(linhaRota) map.removeLayer(linhaRota);
+    statusText.innerHTML="Histórico de rota limpo localmente.";
+};
+
+// ── Cache de tiles ───────────────────────────────────────────────
+window.cachearAreaAtual=async function(){
+    if(!map) return;
+    const btn=document.getElementById('btnCache'); btn.textContent='⏳'; btn.disabled=true;
+    const center=map.getCenter(), zoom=map.getZoom(), promises=[];
+    for(let z=Math.max(14,zoom-2);z<=Math.min(19,zoom+1);z++){
+        const t=latLonToTile(center.lat,center.lng,z);
+        for(let dx=-2;dx<=2;dx++) for(let dy=-2;dy<=2;dy++){
+            const tx=t.x+dx, ty=t.y+dy, sub=['a','b','c'][Math.abs(tx+ty)%3];
+            promises.push(fetch(`https://${sub}.tile.openstreetmap.org/${z}/${tx}/${ty}.png`,{mode:'no-cors'}).catch(()=>{}));
         }
-        initMap();
+    }
+    await Promise.allSettled(promises);
+    btn.textContent='✅'; setTimeout(()=>{btn.textContent='💾';btn.disabled=false;},2000);
+    atualizarContadorCache();
+    document.getElementById('cacheInfo').textContent=`🗺️ ${promises.length} tiles salvos offline nesta área`;
+    document.getElementById('cacheInfo').className='cached';
+};
 
-        // ─────────────────────────────────────────────────────────────
-        //  Helpers
-        // ─────────────────────────────────────────────────────────────
-        function mostrarErro(origem, mensagem) {
-            errorLog.style.display = "block";
-            errorLog.innerHTML += `[${origem}] ${mensagem}<br>`;
-            document.getElementById('statusDot').className = 'status-dot error';
-            document.getElementById('gpsSignal').className = 'gps-signal';
-        }
+function latLonToTile(lat,lon,z){
+    const n=2**z;
+    return { x:Math.floor((lon+180)/360*n), y:Math.floor((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*n) };
+}
+function atualizarContadorCache(){ if(navigator.serviceWorker?.controller) navigator.serviceWorker.controller.postMessage('count-cache'); }
 
-        async function buscarEndereco(lat, lon) {
-            try {
-                const resposta = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=pt-BR`);
-                const dados = await resposta.json();
-                return {
-                    rua:    dados.address.road        || "Rua não identificada",
-                    bairro: dados.address.suburb       || dados.address.neighbourhood || dados.address.village || "Bairro não identificado",
-                    cidade: dados.address.city         || dados.address.town          || dados.address.municipality || "Cidade não identificada",
-                    uf:     dados.address.state        || ""
-                };
-            } catch {
-                return { rua: "Posição registrada", bairro: "", cidade: "", uf: "" };
-            }
-        }
+// ══════════════════════════════════════════════════════════════════
+//  HISTÓRICO — busca por data/hora no Firebase
+// ══════════════════════════════════════════════════════════════════
 
-        function atualizarMapaLocal(dados, vID, endereco) {
-            const pos = [dados.lat, dados.lon];
-            historicoRota.push(pos);
-            if (historicoRota.length > 50) historicoRota.shift();
+window.toggleHistorico=function(){
+    const body=document.getElementById('histBody');
+    const icon=document.getElementById('histToggleIcon');
+    body.classList.toggle('open');
+    icon.classList.toggle('open');
+    // Preenche data de hoje por padrão na primeira abertura
+    if(body.classList.contains('open') && !document.getElementById('filtroDataInicio').value){
+        const hoje=new Date().toISOString().slice(0,10);
+        document.getElementById('filtroDataInicio').value=hoje;
+        document.getElementById('filtroDataFim').value=hoje;
+    }
+};
 
-            marcador.setLatLng(pos);
-            map.flyTo(pos, 17);
+window.buscarHistorico=async function(){
+    const btn=document.getElementById('btnBuscarHistorico');
+    btn.disabled=true; btn.textContent='⏳ Buscando...';
+    const resultado=document.getElementById('histResultados');
+    const countEl=document.getElementById('histCount');
+    resultado.innerHTML='<div class="hist-empty">Buscando registros…</div>';
+    countEl.textContent='';
+    document.getElementById('histMapBtn').classList.remove('visible');
 
-            if (linhaRota) map.removeLayer(linhaRota);
-            linhaRota = L.polyline(historicoRota, { color: '#00ff88', weight: 5, opacity: 0.8 }).addTo(map);
+    const dataInicio = document.getElementById('filtroDataInicio').value;
+    const dataFim    = document.getElementById('filtroDataFim').value;
+    const horaInicio = document.getElementById('filtroHoraInicio').value||'00:00';
+    const horaFim    = document.getElementById('filtroHoraFim').value||'23:59';
+    const filtroTipo = document.getElementById('filtroTipo').value;
+    const vID        = document.getElementById('veiculoID').value||'VEICULO-01';
 
-            const enderecoCompleto = endereco
-                ? `${endereco.rua}, Bairro: ${endereco.bairro} - ${endereco.cidade}/${endereco.uf}`
-                : `${dados.lat.toFixed(5)}, ${dados.lon.toFixed(5)}`;
+    if(!dataInicio){
+        resultado.innerHTML='<div class="hist-empty">Selecione ao menos a data início</div>';
+        btn.disabled=false; btn.textContent='🔍 BUSCAR REGISTROS'; return;
+    }
 
-            marcador.bindPopup(`<b>${vID}</b><br>📍 ${enderecoCompleto}<br>🚗 ${dados.velocidade} km/h`).openPopup();
+    try {
+        // Converte filtros para timestamps
+        const tsInicio = new Date(`${dataInicio}T${horaInicio}:00`).getTime();
+        const tsFim    = new Date(`${(dataFim||dataInicio)}T${horaFim}:59`).getTime();
 
-            totalRegistros++;
-            document.getElementById('metricsGrid').style.display = 'grid';
-            document.getElementById('mv-vel').textContent  = dados.velocidade;
-            document.getElementById('mv-acc').textContent  = dados.acuracia;
-            document.getElementById('mv-pts').textContent  = totalRegistros;
-            document.getElementById('mv-time').textContent = dados.hora;
+        let registros=[];
 
-            document.getElementById('statusDot').className = 'status-dot active';
-            const sig = document.getElementById('gpsSignal');
-            sig.className = 'gps-signal';
-            sig.classList.add(Number(dados.acuracia) <= 40 ? 'active' : 'weak');
-
-            return enderecoCompleto;
-        }
-
-        // ─────────────────────────────────────────────────────────────
-        //  Envio principal  (online → Firebase | offline → IndexedDB)
-        // ─────────────────────────────────────────────────────────────
-        async function enviarDadosParaFirebase(dados) {
-            const vID = document.getElementById('veiculoID').value || 'VEICULO-01';
-
-            // Tenta buscar endereço só se houver Internet
-            let endereco = null;
-            if (navigator.onLine) {
-                statusText.innerHTML = "📡 Buscando endereço de transmissão...";
-                endereco = await buscarEndereco(dados.lat, dados.lon);
-                dados.endereco = endereco;
-            }
-
-            // Atualiza o mapa e métricas locais (sempre funciona)
-            const enderecoCompleto = atualizarMapaLocal(dados, vID, endereco);
-
-            if (navigator.onLine) {
-                // ── ONLINE: envia diretamente ao Firebase ──
-                try {
-                    await set(ref(db, `veiculos/${vID}/atual`), dados);
-                    await push(ref(db, `veiculos/${vID}/historico`), dados);
-                    statusText.innerHTML = `✅ Transmitindo com Sucesso!<br>📍 <b>Endereço:</b> ${enderecoCompleto}<br>🚗 <b>Velocidade:</b> ${dados.velocidade} km/h | 🎯 <b>Precisão:</b> ${dados.acuracia}m`;
-
-                    // Aproveita para drenar a fila pendente
-                    sincronizarFila();
-                } catch (e) {
-                    mostrarErro("Firebase", e.message);
-                }
-            } else {
-                // ── OFFLINE: salva na fila local ──
-                try {
-                    await salvarNaFila({ vID, dados });
-                    const n = await contarFila();
-                    statusText.innerHTML = `💾 Sem internet — ponto salvo localmente.<br>📍 <b>Coords:</b> ${dados.lat.toFixed(5)}, ${dados.lon.toFixed(5)}<br>🚗 <b>Velocidade:</b> ${dados.velocidade} km/h | 🎯 <b>Precisão:</b> ${dados.acuracia}m`;
-                } catch (e) {
-                    mostrarErro("IndexedDB", e.message);
-                }
-            }
-
-            await atualizarBadgeOffline();
-        }
-
-        // ─────────────────────────────────────────────────────────────
-        //  API pública exposta ao HTML
-        // ─────────────────────────────────────────────────────────────
-        window.atualizarLocalizacao = function () {
-            const btn = document.getElementById('btnAtualizar');
-            if (btn) btn.classList.add('loading');
-
-            navigator.geolocation.getCurrentPosition(
-                async (pos) => {
-                    if (btn) btn.classList.remove('loading');
-
-                    const dadosGPS = {
-                        lat:       pos.coords.latitude,
-                        lon:       pos.coords.longitude,
-                        hora:      new Date().toLocaleTimeString(),
-                        timestamp: Date.now(),
-                        acuracia:  Number(pos.coords.accuracy).toFixed(1),
-                        velocidade: pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0
-                    };
-
-                    await enviarDadosParaFirebase(dadosGPS);
-                },
-                (err) => {
-                    if (btn) btn.classList.remove('loading');
-                    mostrarErro("GPS", "Sem resposta do hardware. Verifique se a 'Localização/GPS' está ativa no celular.");
-                },
-                {
-                    enableHighAccuracy: true,
-                    maximumAge: 10000,
-                    timeout: 20000
-                }
+        if(navigator.onLine){
+            // Busca no Firebase com índice de timestamp
+            const q=query(
+                ref(db,`veiculos/${vID}/historico`),
+                orderByChild('timestamp'),
+                startAt(tsInicio),
+                endAt(tsFim)
             );
-        };
-
-        window.centralizarMapa = function () {
-            if (historicoRota.length > 0) {
-                map.flyTo(historicoRota[historicoRota.length - 1], 17);
+            const snap=await get(q);
+            if(snap.exists()){
+                snap.forEach(child=>{
+                    const d=child.val();
+                    if(!filtroTipo || d.tipo===filtroTipo || (!d.tipo && filtroTipo==='normal'))
+                        registros.push(d);
+                });
             }
-        };
+        } else {
+            // Offline: busca no IndexedDB local
+            const chaves=await lerChaves();
+            const idb=await abrirIDB();
+            for(const c of chaves){
+                const item=await lerItem(idb,c);
+                if(!item) continue;
+                const d=item.dados;
+                if(d.timestamp>=tsInicio && d.timestamp<=tsFim){
+                    if(!filtroTipo || d.tipo===filtroTipo || (!d.tipo && filtroTipo==='normal'))
+                        registros.push(d);
+                }
+            }
+        }
 
-        window.limparRota = function () {
-            historicoRota = [];
-            if (linhaRota) map.removeLayer(linhaRota);
-            statusText.innerHTML = "Histórico de rota limpo localmente.";
-        };
+        // Ordena por timestamp crescente
+        registros.sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
+        historicoResultados=registros;
 
-        // ─────────────────────────────────────────────────────────────
-        //  Inicialização
-        // ─────────────────────────────────────────────────────────────
-        atualizarBadgeOffline();
-        setInterval(window.atualizarLocalizacao, 8000);
-        window.atualizarLocalizacao();
+        if(!registros.length){
+            resultado.innerHTML='<div class="hist-empty">Nenhum registro encontrado neste período</div>';
+            countEl.textContent=''; btn.disabled=false; btn.textContent='🔍 BUSCAR REGISTROS'; return;
+        }
 
-        // Tenta sincronizar a fila a cada 30 s (recuperação automática)
-        setInterval(sincronizarFila, 30_000);
-    </script>
+        countEl.textContent=`${registros.length} registro${registros.length!==1?'s':''} encontrado${registros.length!==1?'s':''}`;
+
+        resultado.innerHTML='';
+        registros.forEach((d,i)=>{
+            const tipo=d.tipo||'normal';
+            const tipoLabel={ parada_detectada:'parada', retomada_movimento:'retomada', normal:'normal' }[tipo]||'normal';
+            const tipoEmoji={ parada_detectada:'🅿️', retomada_movimento:'▶️', normal:'📍' }[tipo]||'📍';
+            const endStr=d.enderecoCompleto||(d.endereco?`${d.endereco.rua}, ${d.endereco.bairro} — ${d.endereco.cidade}`:`${(d.lat||0).toFixed(5)}, ${(d.lon||0).toFixed(5)}`);
+            const hora=d.hora||new Date(d.timestamp||0).toLocaleTimeString();
+            const data=d.data||new Date(d.timestamp||0).toLocaleDateString('pt-BR');
+            const extra=tipo==='parada_detectada'?` · parado ${fmtDur(d.duracaoSegundos||0)}`:(tipo==='retomada_movimento'?` · parado ${fmtDur(d.duracaoParadaSegundos||0)}`:'');
+
+            const el=document.createElement('div');
+            el.className=`hist-item ${tipoLabel}`;
+            el.innerHTML=`
+                <div class="hist-item-hora">${tipoEmoji} ${hora} <span style="color:#555;font-size:.85em">· ${data}</span><span class="hist-item-tipo ${tipoLabel}">${tipoLabel}</span></div>
+                <div class="hist-item-end">${endStr}</div>
+                <div class="hist-item-meta">🚗 ${d.velocidade||0} km/h · 🎯 ${d.acuracia||'?'}m${extra}</div>`;
+
+            // Clique → centraliza no mapa
+            if(d.lat && d.lon){
+                el.onclick=()=>{ map.flyTo([d.lat,d.lon],17); window.scrollTo({top:0,behavior:'smooth'}); };
+            }
+            resultado.appendChild(el);
+        });
+
+        // Botão de rota apenas se tiver pontos com coordenadas
+        if(registros.some(r=>r.lat&&r.lon))
+            document.getElementById('histMapBtn').classList.add('visible');
+
+    } catch(e){
+        resultado.innerHTML=`<div class="hist-empty" style="color:#ff9999">Erro na busca: ${e.message}</div>`;
+    }
+    btn.disabled=false; btn.textContent='🔍 BUSCAR REGISTROS';
+};
+
+// Mostra a rota dos registros buscados no mapa
+window.mostrarRotaHistorico=function(){
+    const pontos=historicoResultados.filter(r=>r.lat&&r.lon).map(r=>[r.lat,r.lon]);
+    if(!pontos.length) return;
+    if(linhaRota) map.removeLayer(linhaRota);
+    linhaRota=L.polyline(pontos,{color:'#00c8ff',weight:4,opacity:.85,dashArray:'8,4'}).addTo(map);
+    map.fitBounds(linhaRota.getBounds(),{padding:[20,20]});
+    window.scrollTo({top:0,behavior:'smooth'});
+};
+
+// ── Init ─────────────────────────────────────────────────────────
+atualizarBadge();
+atualizarContadorCache();
+setInterval(window.atualizarLocalizacao, 8000);
+window.atualizarLocalizacao();
+setInterval(sincronizarFila, 30_000);
+setInterval(atualizarContadorCache, 60_000);
+</script>
 </body>
 </html>
