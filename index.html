@@ -250,6 +250,37 @@
             max-height: 120px;
             overflow-y: auto;
         }
+
+        /* ── Offline badge ── */
+        #offlineBadge {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: #2a1a00;
+            border: 1px solid var(--warn);
+            color: var(--warn);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.82em;
+            font-family: 'Share Tech Mono', monospace;
+            letter-spacing: 1px;
+        }
+        #offlineBadge.visible { display: flex; }
+        #offlineBadge .badge-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--warn);
+            flex-shrink: 0;
+            animation: pulse-bar 1s ease-in-out infinite;
+        }
+        #pendingCount {
+            margin-left: auto;
+            background: rgba(255,170,0,0.15);
+            border: 1px solid rgba(255,170,0,0.4);
+            border-radius: 4px;
+            padding: 1px 7px;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 
@@ -279,6 +310,13 @@
 
     <div class="controls">
         <input type="text" id="veiculoID" value="VEICULO-01" placeholder="ID do veículo">
+
+        <!-- Offline warning banner -->
+        <div id="offlineBadge">
+            <span class="badge-dot"></span>
+            <span>MODO OFFLINE — Gravando localmente</span>
+            <span id="pendingCount">0 pendentes</span>
+        </div>
 
         <button id="btnAtualizar" onclick="window.atualizarLocalizacao()">
             🛰️ ATUALIZAR LOCALIZAÇÃO
@@ -337,13 +375,147 @@
         const db = getDatabase(app);
 
         const statusText = document.getElementById('statusText');
-        const errorLog = document.getElementById('errorLog');
+        const errorLog   = document.getElementById('errorLog');
+        const offlineBadge   = document.getElementById('offlineBadge');
+        const pendingCountEl = document.getElementById('pendingCount');
 
         let map, marcador;
         let historicoRota = [];
         let totalRegistros = 0;
         let linhaRota = null;
 
+        // ─────────────────────────────────────────────────────────────
+        //  IndexedDB  ·  banco: "gps_offline"  ·  store: "fila"
+        // ─────────────────────────────────────────────────────────────
+        const IDB_NAME    = 'gps_offline';
+        const IDB_VERSION = 1;
+        const STORE_NAME  = 'fila';
+
+        function abrirIDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+                req.onupgradeneeded = e => {
+                    const idb = e.target.result;
+                    if (!idb.objectStoreNames.contains(STORE_NAME)) {
+                        idb.createObjectStore(STORE_NAME, { autoIncrement: true });
+                    }
+                };
+                req.onsuccess = e => resolve(e.target.result);
+                req.onerror   = e => reject(e.target.error);
+            });
+        }
+
+        async function salvarNaFila(dados) {
+            const idb  = await abrirIDB();
+            const tx   = idb.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            store.add(dados);
+            return new Promise((res, rej) => {
+                tx.oncomplete = res;
+                tx.onerror    = () => rej(tx.error);
+            });
+        }
+
+        async function lerFila() {
+            const idb = await abrirIDB();
+            return new Promise((resolve, reject) => {
+                const tx    = idb.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const req   = store.getAll();
+                req.onsuccess = () => resolve(req.result);
+                req.onerror   = () => reject(req.error);
+            });
+        }
+
+        async function lerChavesDaFila() {
+            const idb = await abrirIDB();
+            return new Promise((resolve, reject) => {
+                const tx    = idb.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const req   = store.getAllKeys();
+                req.onsuccess = () => resolve(req.result);
+                req.onerror   = () => reject(req.error);
+            });
+        }
+
+        async function removerDaFila(chave) {
+            const idb = await abrirIDB();
+            const tx   = idb.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).delete(chave);
+            return new Promise((res, rej) => {
+                tx.oncomplete = res;
+                tx.onerror    = () => rej(tx.error);
+            });
+        }
+
+        async function contarFila() {
+            const chaves = await lerChavesDaFila();
+            return chaves.length;
+        }
+
+        async function atualizarBadgeOffline() {
+            const n = await contarFila();
+            if (!navigator.onLine || n > 0) {
+                offlineBadge.classList.add('visible');
+                pendingCountEl.textContent = `${n} pendente${n !== 1 ? 's' : ''}`;
+            } else {
+                offlineBadge.classList.remove('visible');
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  Sincronização da fila → Firebase
+        // ─────────────────────────────────────────────────────────────
+        let sincronizando = false;
+
+        async function sincronizarFila() {
+            if (sincronizando || !navigator.onLine) return;
+            sincronizando = true;
+
+            try {
+                const chaves = await lerChavesDaFila();
+                if (chaves.length === 0) { sincronizando = false; return; }
+
+                const idb = await abrirIDB();
+
+                for (const chave of chaves) {
+                    // lê registro individual pela chave
+                    const item = await new Promise((res, rej) => {
+                        const tx  = idb.transaction(STORE_NAME, 'readonly');
+                        const req = tx.objectStore(STORE_NAME).get(chave);
+                        req.onsuccess = () => res(req.result);
+                        req.onerror   = () => rej(req.error);
+                    });
+                    if (!item) continue;
+
+                    const vID = item.vID || document.getElementById('veiculoID').value || 'VEICULO-01';
+                    await set(push(ref(db, `veiculos/${vID}/historico`)), item.dados);
+                    await removerDaFila(chave);
+                }
+
+                await atualizarBadgeOffline();
+                statusText.innerHTML = `✅ Fila sincronizada com o Firebase!`;
+            } catch (e) {
+                // Falha silenciosa — tentará novamente no próximo ciclo
+            } finally {
+                sincronizando = false;
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  Eventos de conectividade
+        // ─────────────────────────────────────────────────────────────
+        window.addEventListener('online',  () => {
+            atualizarBadgeOffline();
+            sincronizarFila();
+        });
+        window.addEventListener('offline', () => {
+            atualizarBadgeOffline();
+        });
+
+        // ─────────────────────────────────────────────────────────────
+        //  Mapa
+        // ─────────────────────────────────────────────────────────────
         const carroIcone = L.icon({
             iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png',
             iconSize: [40, 40],
@@ -352,16 +524,17 @@
 
         function initMap() {
             map = L.map('map').setView([-23.5505, -46.6333], 16);
-            
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap',
                 maxZoom: 19
             }).addTo(map);
-
             marcador = L.marker([-23.5505, -46.6333], { icon: carroIcone }).addTo(map);
         }
         initMap();
 
+        // ─────────────────────────────────────────────────────────────
+        //  Helpers
+        // ─────────────────────────────────────────────────────────────
         function mostrarErro(origem, mensagem) {
             errorLog.style.display = "block";
             errorLog.innerHTML += `[${origem}] ${mensagem}<br>`;
@@ -371,75 +544,97 @@
 
         async function buscarEndereco(lat, lon) {
             try {
-                // Adicionado accept-language=pt-BR para garantir respostas em português
                 const resposta = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=pt-BR`);
                 const dados = await resposta.json();
-                
-                // Mapeia os dados coletando rua, bairro, cidade e o estado (UF)
                 return {
-                    rua: dados.address.road || "Rua não identificada",
-                    bairro: dados.address.suburb || dados.address.neighbourhood || dados.address.village || "Bairro não identificado",
-                    cidade: dados.address.city || dados.address.town || dados.address.municipality || "Cidade não identificada",
-                    uf: dados.address.state ? dados.address.state : "" 
+                    rua:    dados.address.road        || "Rua não identificada",
+                    bairro: dados.address.suburb       || dados.address.neighbourhood || dados.address.village || "Bairro não identificado",
+                    cidade: dados.address.city         || dados.address.town          || dados.address.municipality || "Cidade não identificada",
+                    uf:     dados.address.state        || ""
                 };
             } catch {
                 return { rua: "Posição registrada", bairro: "", cidade: "", uf: "" };
             }
         }
 
-        async function enviarDadosParaFirebase(dados) {
-            try {
-                const vID = document.getElementById('veiculoID').value || "VEICULO-01";
-                statusText.innerHTML = "📡 Buscando endereço de transmissão...";
+        function atualizarMapaLocal(dados, vID, endereco) {
+            const pos = [dados.lat, dados.lon];
+            historicoRota.push(pos);
+            if (historicoRota.length > 50) historicoRota.shift();
 
-                const endereco = await buscarEndereco(dados.lat, dados.lon);
-                dados.endereco = endereco;
+            marcador.setLatLng(pos);
+            map.flyTo(pos, 17);
 
-                // Salva a estrutura completa mapeada no Firebase
-                await set(ref(db, `veiculos/${vID}/atual`), dados);
-                await push(ref(db, `veiculos/${vID}/historico`), dados);
+            if (linhaRota) map.removeLayer(linhaRota);
+            linhaRota = L.polyline(historicoRota, { color: '#00ff88', weight: 5, opacity: 0.8 }).addTo(map);
 
-                const pos = [dados.lat, dados.lon];
-                historicoRota.push(pos);
-                if (historicoRota.length > 50) historicoRota.shift();
+            const enderecoCompleto = endereco
+                ? `${endereco.rua}, Bairro: ${endereco.bairro} - ${endereco.cidade}/${endereco.uf}`
+                : `${dados.lat.toFixed(5)}, ${dados.lon.toFixed(5)}`;
 
-                marcador.setLatLng(pos);
-                map.flyTo(pos, 17);
+            marcador.bindPopup(`<b>${vID}</b><br>📍 ${enderecoCompleto}<br>🚗 ${dados.velocidade} km/h`).openPopup();
 
-                if (linhaRota) map.removeLayer(linhaRota);
-                linhaRota = L.polyline(historicoRota, { color: '#00ff88', weight: 5, opacity: 0.8 }).addTo(map);
+            totalRegistros++;
+            document.getElementById('metricsGrid').style.display = 'grid';
+            document.getElementById('mv-vel').textContent  = dados.velocidade;
+            document.getElementById('mv-acc').textContent  = dados.acuracia;
+            document.getElementById('mv-pts').textContent  = totalRegistros;
+            document.getElementById('mv-time').textContent = dados.hora;
 
-                // Formata a string de endereço legível
-                const enderecoCompleto = `${endereco.rua}, Bairro: ${endereco.bairro} - ${endereco.cidade}/${endereco.uf}`;
+            document.getElementById('statusDot').className = 'status-dot active';
+            const sig = document.getElementById('gpsSignal');
+            sig.className = 'gps-signal';
+            sig.classList.add(Number(dados.acuracia) <= 40 ? 'active' : 'weak');
 
-                // Atualiza o balão do mapa (Popup)
-                marcador.bindPopup(`<b>${vID}</b><br>📍 ${enderecoCompleto}<br>🚗 ${dados.velocidade} km/h`).openPopup();
-
-                // Atualiza o painel inferior de status do sistema
-                statusText.innerHTML = `✅ Transmitindo com Sucesso!<br>📍 <b>Endereço:</b> ${enderecoCompleto}<br>🚗 <b>Velocidade:</b> ${dados.velocidade} km/h | 🎯 <b>Precisão:</b> ${dados.acuracia}m`;
-
-                totalRegistros++;
-                document.getElementById('metricsGrid').style.display = 'grid';
-                document.getElementById('mv-vel').textContent = dados.velocidade;
-                document.getElementById('mv-acc').textContent = dados.acuracia;
-                document.getElementById('mv-pts').textContent = totalRegistros;
-                document.getElementById('mv-time').textContent = dados.hora;
-
-                document.getElementById('statusDot').className = 'status-dot active';
-                
-                const sig = document.getElementById('gpsSignal');
-                sig.className = 'gps-signal';
-                if (Number(dados.acuracia) <= 40) {
-                    sig.classList.add('active');
-                } else {
-                    sig.classList.add('weak');
-                }
-
-            } catch (e) {
-                mostrarErro("Firebase", e.message);
-            }
+            return enderecoCompleto;
         }
 
+        // ─────────────────────────────────────────────────────────────
+        //  Envio principal  (online → Firebase | offline → IndexedDB)
+        // ─────────────────────────────────────────────────────────────
+        async function enviarDadosParaFirebase(dados) {
+            const vID = document.getElementById('veiculoID').value || 'VEICULO-01';
+
+            // Tenta buscar endereço só se houver Internet
+            let endereco = null;
+            if (navigator.onLine) {
+                statusText.innerHTML = "📡 Buscando endereço de transmissão...";
+                endereco = await buscarEndereco(dados.lat, dados.lon);
+                dados.endereco = endereco;
+            }
+
+            // Atualiza o mapa e métricas locais (sempre funciona)
+            const enderecoCompleto = atualizarMapaLocal(dados, vID, endereco);
+
+            if (navigator.onLine) {
+                // ── ONLINE: envia diretamente ao Firebase ──
+                try {
+                    await set(ref(db, `veiculos/${vID}/atual`), dados);
+                    await push(ref(db, `veiculos/${vID}/historico`), dados);
+                    statusText.innerHTML = `✅ Transmitindo com Sucesso!<br>📍 <b>Endereço:</b> ${enderecoCompleto}<br>🚗 <b>Velocidade:</b> ${dados.velocidade} km/h | 🎯 <b>Precisão:</b> ${dados.acuracia}m`;
+
+                    // Aproveita para drenar a fila pendente
+                    sincronizarFila();
+                } catch (e) {
+                    mostrarErro("Firebase", e.message);
+                }
+            } else {
+                // ── OFFLINE: salva na fila local ──
+                try {
+                    await salvarNaFila({ vID, dados });
+                    const n = await contarFila();
+                    statusText.innerHTML = `💾 Sem internet — ponto salvo localmente.<br>📍 <b>Coords:</b> ${dados.lat.toFixed(5)}, ${dados.lon.toFixed(5)}<br>🚗 <b>Velocidade:</b> ${dados.velocidade} km/h | 🎯 <b>Precisão:</b> ${dados.acuracia}m`;
+                } catch (e) {
+                    mostrarErro("IndexedDB", e.message);
+                }
+            }
+
+            await atualizarBadgeOffline();
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  API pública exposta ao HTML
+        // ─────────────────────────────────────────────────────────────
         window.atualizarLocalizacao = function () {
             const btn = document.getElementById('btnAtualizar');
             if (btn) btn.classList.add('loading');
@@ -449,11 +644,11 @@
                     if (btn) btn.classList.remove('loading');
 
                     const dadosGPS = {
-                        lat: pos.coords.latitude,
-                        lon: pos.coords.longitude,
-                        hora: new Date().toLocaleTimeString(),
+                        lat:       pos.coords.latitude,
+                        lon:       pos.coords.longitude,
+                        hora:      new Date().toLocaleTimeString(),
                         timestamp: Date.now(),
-                        acuracia: Number(pos.coords.accuracy).toFixed(1),
+                        acuracia:  Number(pos.coords.accuracy).toFixed(1),
                         velocidade: pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0
                     };
 
@@ -466,25 +661,32 @@
                 {
                     enableHighAccuracy: true,
                     maximumAge: 10000,
-                    timeout: 20000 
+                    timeout: 20000
                 }
             );
         };
 
-        window.centralizarMapa = function() {
+        window.centralizarMapa = function () {
             if (historicoRota.length > 0) {
                 map.flyTo(historicoRota[historicoRota.length - 1], 17);
             }
         };
 
-        window.limparRota = function() {
+        window.limparRota = function () {
             historicoRota = [];
             if (linhaRota) map.removeLayer(linhaRota);
             statusText.innerHTML = "Histórico de rota limpo localmente.";
         };
 
+        // ─────────────────────────────────────────────────────────────
+        //  Inicialização
+        // ─────────────────────────────────────────────────────────────
+        atualizarBadgeOffline();
         setInterval(window.atualizarLocalizacao, 8000);
         window.atualizarLocalizacao();
+
+        // Tenta sincronizar a fila a cada 30 s (recuperação automática)
+        setInterval(sincronizarFila, 30_000);
     </script>
 </body>
 </html>
