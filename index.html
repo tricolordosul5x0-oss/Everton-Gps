@@ -2,10 +2,9 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Everton GPS PRO</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #00ff88;
@@ -18,74 +17,72 @@
             --radius: 12px;
             --stop-color: #ff6b35;
         }
-        * { box-sizing: border-box; }
-        body { margin:0; padding:10px; background:var(--bg); color:white; font-family:'Segoe UI',sans-serif; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { margin:0; padding:10px; background:var(--bg); color:white; font-family:'Segoe UI',Arial,sans-serif; }
 
-        /* ── Header ── */
         header {
             background:var(--card); padding:15px; border-bottom:2px solid var(--primary);
-            text-align:center; margin-bottom:10px; border-radius:10px;
-            position:relative; overflow:hidden;
+            text-align:center; margin-bottom:10px; border-radius:10px; position:relative; overflow:hidden;
         }
         header::before {
             content:''; position:absolute; top:0; left:0; right:0; height:2px;
             background:linear-gradient(90deg,transparent,var(--primary),var(--accent2),transparent);
             animation:scanline 3s linear infinite;
         }
-        @keyframes scanline { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
-        .header-inner { display:flex; align-items:center; justify-content:center; gap:12px; }
-        .gps-signal { display:flex; align-items:flex-end; gap:3px; height:20px; }
-        .gps-signal span { width:4px; border-radius:2px; background:#333; transition:background .4s; }
+        @keyframes scanline { 0%{left:-100%} 100%{left:100%} }
+        .header-inner { display:-webkit-box; display:-ms-flexbox; display:flex; -webkit-box-align:center; -ms-flex-align:center; align-items:center; -webkit-box-pack:center; -ms-flex-pack:center; justify-content:center; gap:12px; }
+        .gps-signal { display:-webkit-box; display:-ms-flexbox; display:flex; -webkit-box-align:flex-end; -ms-flex-align:flex-end; align-items:flex-end; gap:3px; height:20px; }
+        .gps-signal span { width:4px; border-radius:2px; background:#333; }
         .gps-signal span:nth-child(1){height:5px} .gps-signal span:nth-child(2){height:10px}
         .gps-signal span:nth-child(3){height:15px} .gps-signal span:nth-child(4){height:20px}
         .gps-signal.active span { background:var(--primary); animation:pulse-bar 1.4s ease-in-out infinite; }
         .gps-signal.weak span   { background:var(--warn); }
         @keyframes pulse-bar { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-        /* ── Mapa ── */
         #map { height:320px; width:100%; border-radius:10px; background:#252525; }
         .map-wrapper { position:relative; }
         .map-controls-overlay {
             position:absolute; top:10px; right:10px; z-index:1000;
-            display:flex; flex-direction:column; gap:6px;
+            display:-webkit-box; display:-ms-flexbox; display:flex;
+            -webkit-box-orient:vertical; -ms-flex-direction:column; flex-direction:column; gap:6px;
         }
         .map-btn {
             width:38px; height:38px; border-radius:8px;
             background:rgba(30,30,30,.92); border:1px solid rgba(0,255,136,.3);
             color:var(--primary); font-size:1.1em; cursor:pointer;
-            display:flex; align-items:center; justify-content:center; padding:0;
-            backdrop-filter:blur(6px); transition:background .2s;
+            display:-webkit-box; display:-ms-flexbox; display:flex;
+            -webkit-box-align:center; -ms-flex-align:center; align-items:center;
+            -webkit-box-pack:center; -ms-flex-pack:center; justify-content:center; padding:0;
         }
-        #cacheInfo { font-size:.7em; color:#555; font-family:'Share Tech Mono',monospace; text-align:center; padding:4px 0 0; letter-spacing:1px; }
+        #cacheInfo { font-size:.7em; color:#555; font-family:monospace; text-align:center; padding:4px 0 0; letter-spacing:1px; }
         #cacheInfo.cached { color:#00aa55; }
 
-        /* ── Controls ── */
-        .controls { margin-top:15px; display:flex; flex-direction:column; gap:10px; }
-        input {
+        .controls { margin-top:15px; display:-webkit-box; display:-ms-flexbox; display:flex; -webkit-box-orient:vertical; -ms-flex-direction:column; flex-direction:column; gap:10px; }
+        input, select {
             padding:12px; border:1px solid #2a2a2a; border-radius:8px;
             background:#252525; color:white; font-size:1em;
-            font-family:'Share Tech Mono',monospace; letter-spacing:1px; width:100%;
+            font-family:monospace; letter-spacing:1px; width:100%;
+            -webkit-appearance:none; -moz-appearance:none;
         }
         button#btnAtualizar {
             padding:14px; border:none; border-radius:8px;
             background:linear-gradient(135deg,#00ff88,#00c8ff); color:black;
-            font-weight:bold; cursor:pointer; font-size:1.1em;
-            font-family:'Rajdhani',sans-serif; letter-spacing:2px;
+            font-weight:bold; cursor:pointer; font-size:1.1em; letter-spacing:2px;
         }
         button#btnAtualizar.loading { pointer-events:none; opacity:.7; }
 
-        /* ── Metrics ── */
-        .metrics-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .metrics-grid { display:-webkit-box; display:-ms-flexbox; display:flex; -ms-flex-wrap:wrap; flex-wrap:wrap; gap:8px; }
         .metric-card {
             background:var(--card2); border-radius:var(--radius); padding:12px 14px;
-            border:1px solid #2a2a2a; display:flex; flex-direction:column; gap:4px; transition:border-color .3s;
+            border:1px solid #2a2a2a;
+            -webkit-box-flex:1; -ms-flex:1 1 calc(50% - 4px); flex:1 1 calc(50% - 4px);
+            min-width:120px;
         }
-        .metric-card.stopped { border-color:var(--stop-color); box-shadow:0 0 10px rgba(255,107,53,.2); }
-        .metric-label { font-size:.68em; color:#888; text-transform:uppercase; letter-spacing:1px; font-family:'Share Tech Mono',monospace; }
-        .metric-value { font-family:'Rajdhani',sans-serif; font-size:1.5em; font-weight:700; color:var(--primary); }
-        .metric-unit  { font-size:.65em; color:#666; font-family:'Share Tech Mono',monospace; }
+        .metric-card.stopped { border-color:var(--stop-color); }
+        .metric-label { font-size:.68em; color:#888; text-transform:uppercase; letter-spacing:1px; font-family:monospace; }
+        .metric-value { font-size:1.5em; font-weight:700; color:var(--primary); }
+        .metric-unit  { font-size:.65em; color:#666; font-family:monospace; }
 
-        /* ── Status ── */
         .status-box {
             background:#252525; padding:20px 15px 15px; border-radius:8px;
             border:1px solid #2a2a2a; line-height:1.8; font-size:1em; position:relative;
@@ -93,13 +90,13 @@
         .status-label-tag {
             position:absolute; top:-10px; left:12px; background:var(--card2);
             padding:1px 8px; font-size:.68em; color:var(--primary);
-            border:1px solid rgba(0,255,136,.4); border-radius:4px; font-family:'Share Tech Mono',monospace;
+            border:1px solid rgba(0,255,136,.4); border-radius:4px; font-family:monospace;
         }
         .status-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#444; margin-right:6px; vertical-align:middle; }
-        .status-dot.active { background:var(--primary); box-shadow:0 0 8px var(--primary); }
-        .status-dot.warn   { background:var(--warn);    box-shadow:0 0 8px var(--warn); }
-        .status-dot.error  { background:var(--danger);  box-shadow:0 0 8px var(--danger); }
-        .status-dot.stop   { background:var(--stop-color); box-shadow:0 0 8px var(--stop-color); }
+        .status-dot.active { background:var(--primary); }
+        .status-dot.warn   { background:var(--warn); }
+        .status-dot.error  { background:var(--danger); }
+        .status-dot.stop   { background:var(--stop-color); }
 
         .error-log {
             background:#3a1a1a; border:1px solid #ff4444; color:#ff9999;
@@ -107,17 +104,16 @@
             font-family:monospace; max-height:120px; overflow-y:auto;
         }
 
-        /* ── Badges ── */
         #offlineBadge {
-            display:none; align-items:center; gap:8px;
+            display:none; -webkit-box-align:center; -ms-flex-align:center; align-items:center; gap:8px;
             background:#2a1a00; border:1px solid var(--warn); color:var(--warn);
             border-radius:8px; padding:10px 14px; font-size:.82em;
-            font-family:'Share Tech Mono',monospace; letter-spacing:1px;
+            font-family:monospace; letter-spacing:1px;
         }
-        #offlineBadge.visible { display:flex; }
+        #offlineBadge.visible { display:-webkit-box; display:-ms-flexbox; display:flex; }
         #offlineBadge .badge-dot {
             width:8px; height:8px; border-radius:50%; background:var(--warn);
-            flex-shrink:0; animation:pulse-bar 1s ease-in-out infinite;
+            -ms-flex-negative:0; flex-shrink:0; animation:pulse-bar 1s ease-in-out infinite;
         }
         #pendingCount {
             margin-left:auto; background:rgba(255,170,0,.15);
@@ -125,19 +121,19 @@
         }
 
         #stopBadge {
-            display:none; align-items:center; gap:10px;
+            display:none; -webkit-box-align:center; -ms-flex-align:center; align-items:center; gap:10px;
             background:#2a1200; border:1px solid var(--stop-color); color:var(--stop-color);
             border-radius:8px; padding:12px 14px; font-size:.85em;
-            font-family:'Share Tech Mono',monospace; letter-spacing:1px;
+            font-family:monospace; letter-spacing:1px;
             animation:stopPulse 2s ease-in-out infinite;
         }
-        #stopBadge.visible { display:flex; }
+        #stopBadge.visible { display:-webkit-box; display:-ms-flexbox; display:flex; }
         @keyframes stopPulse {
-            0%,100%{border-color:var(--stop-color);box-shadow:0 0 0 rgba(255,107,53,0)}
-            50%{border-color:#ff9060;box-shadow:0 0 12px rgba(255,107,53,.35)}
+            0%,100%{border-color:var(--stop-color)}
+            50%{border-color:#ff9060}
         }
-        #stopBadge .stop-icon { font-size:1.4em; flex-shrink:0; animation:pulse-bar 1.5s ease-in-out infinite; }
-        .stop-info { display:flex; flex-direction:column; gap:2px; flex:1; }
+        .stop-icon { font-size:1.4em; -ms-flex-negative:0; flex-shrink:0; animation:pulse-bar 1.5s ease-in-out infinite; }
+        .stop-info { display:-webkit-box; display:-ms-flexbox; display:flex; -webkit-box-orient:vertical; -ms-flex-direction:column; flex-direction:column; gap:2px; -webkit-box-flex:1; -ms-flex:1; flex:1; }
         .stop-title { font-weight:700; font-size:.9em; letter-spacing:2px; }
         .stop-detail { font-size:.75em; color:#ffaa80; }
         #stopTimer {
@@ -145,186 +141,179 @@
             border-radius:4px; padding:2px 8px; font-size:1em; font-weight:700; white-space:nowrap;
         }
 
-        /* ══════════════════════════════════════
-           PAINEL DE HISTÓRICO
-        ══════════════════════════════════════ */
         #historicoPanel {
             background:var(--card); border-radius:var(--radius);
             border:1px solid #2a2a2a; overflow:hidden;
         }
         .hist-header {
-            display:flex; align-items:center; justify-content:space-between;
+            display:-webkit-box; display:-ms-flexbox; display:flex;
+            -webkit-box-align:center; -ms-flex-align:center; align-items:center;
+            -webkit-box-pack:justify; -ms-flex-pack:justify; justify-content:space-between;
             padding:12px 14px; background:#1a1a1a; border-bottom:1px solid #2a2a2a;
-            cursor:pointer; user-select:none;
+            cursor:pointer; -webkit-user-select:none; -moz-user-select:none; user-select:none;
         }
-        .hist-header-left { display:flex; align-items:center; gap:8px; font-family:'Rajdhani',sans-serif; font-size:1.05em; font-weight:700; letter-spacing:2px; color:var(--primary); }
-        .hist-toggle { color:#666; font-size:.8em; transition:transform .3s; }
-        .hist-toggle.open { transform:rotate(180deg); }
-
+        .hist-header-left { display:-webkit-box; display:-ms-flexbox; display:flex; -webkit-box-align:center; -ms-flex-align:center; align-items:center; gap:8px; font-size:1.05em; font-weight:700; letter-spacing:2px; color:var(--primary); }
+        .hist-toggle { color:#666; font-size:.8em; }
         .hist-body { display:none; padding:12px; }
         .hist-body.open { display:block; }
 
         .hist-filters {
-            display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;
+            display:-webkit-box; display:-ms-flexbox; display:flex; gap:8px; margin-bottom:10px; -ms-flex-wrap:wrap; flex-wrap:wrap;
         }
-        .hist-filters input { padding:8px 10px; font-size:.85em; }
-
+        .hist-filters > div { -webkit-box-flex:1; -ms-flex:1 1 calc(50% - 4px); flex:1 1 calc(50% - 4px); }
         .hist-filters-row {
-            display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:10px;
+            display:-webkit-box; display:-ms-flexbox; display:flex; gap:8px; margin-bottom:10px; -ms-flex-wrap:wrap; flex-wrap:wrap;
         }
-        .hist-filters-row input { padding:8px 10px; font-size:.82em; }
+        .hist-filters-row > div { -webkit-box-flex:1; -ms-flex:1 1 calc(33% - 6px); flex:1 1 calc(33% - 6px); }
+        .hist-filters input, .hist-filters-row input, .hist-filters-row select { padding:8px 6px; font-size:.82em; }
 
         .btn-buscar {
             width:100%; padding:10px; border:none; border-radius:8px;
             background:linear-gradient(135deg,#00cc66,#0099cc); color:black;
-            font-weight:700; cursor:pointer; font-family:'Rajdhani',sans-serif;
-            font-size:1em; letter-spacing:2px; margin-bottom:10px;
+            font-weight:700; cursor:pointer; font-size:1em; letter-spacing:2px; margin-bottom:10px;
         }
         .btn-buscar:disabled { opacity:.5; pointer-events:none; }
 
         #histResultados {
             max-height:340px; overflow-y:auto;
-            display:flex; flex-direction:column; gap:6px;
+            display:-webkit-box; display:-ms-flexbox; display:flex;
+            -webkit-box-orient:vertical; -ms-flex-direction:column; flex-direction:column; gap:6px;
         }
-
         .hist-item {
             background:#1a1a1a; border:1px solid #2a2a2a; border-radius:8px;
             padding:10px 12px; font-size:.82em; line-height:1.6;
-            cursor:pointer; transition:border-color .2s;
+            cursor:pointer;
         }
-        .hist-item:hover { border-color:rgba(0,255,136,.4); }
-        .hist-item.parada { border-left:3px solid var(--stop-color); }
+        .hist-item.parada   { border-left:3px solid var(--stop-color); }
         .hist-item.retomada { border-left:3px solid var(--accent2); }
-        .hist-item-hora { color:var(--primary); font-family:'Share Tech Mono',monospace; font-weight:700; font-size:.95em; }
+        .hist-item-hora { color:var(--primary); font-family:monospace; font-weight:700; font-size:.95em; }
         .hist-item-end  { color:#ccc; }
         .hist-item-meta { color:#666; font-size:.9em; }
-        .hist-item-tipo { display:inline-block; padding:1px 6px; border-radius:3px; font-size:.8em; margin-left:6px; }
+        .hist-item-tipo {
+            display:inline-block; padding:1px 6px; border-radius:3px; font-size:.8em; margin-left:6px;
+        }
         .hist-item-tipo.parada   { background:rgba(255,107,53,.2); color:var(--stop-color); }
         .hist-item-tipo.retomada { background:rgba(0,200,255,.15); color:var(--accent2); }
-        .hist-item-tipo.normal   { background:rgba(0,255,136,.1);  color:var(--primary); }
-
+        .hist-item-tipo.normal   { background:rgba(0,255,136,.1); color:var(--primary); }
         .hist-empty {
-            text-align:center; color:#555; font-family:'Share Tech Mono',monospace;
+            text-align:center; color:#555; font-family:monospace;
             font-size:.82em; padding:30px 0; letter-spacing:1px;
         }
         .hist-count {
-            font-size:.72em; color:#666; font-family:'Share Tech Mono',monospace;
+            font-size:.72em; color:#666; font-family:monospace;
             text-align:right; padding:6px 0 2px; letter-spacing:1px;
         }
-
         #histMapBtn {
             width:100%; padding:8px; border:1px solid rgba(0,255,136,.3); border-radius:8px;
             background:transparent; color:var(--primary); cursor:pointer;
-            font-family:'Share Tech Mono',monospace; font-size:.8em; letter-spacing:1px;
+            font-family:monospace; font-size:.8em; letter-spacing:1px;
             margin-top:8px; display:none;
         }
         #histMapBtn.visible { display:block; }
+
+        /* Modo offline total - oculta elementos que precisam de rede */
+        .offline-hide { }
     </style>
 </head>
 <body>
 
 <header>
     <div class="header-inner">
-        <h2 style="margin:0;font-family:'Rajdhani',sans-serif;letter-spacing:3px;font-size:1.35em">🛰️ Everton GPS PRO</h2>
+        <h2 style="margin:0;letter-spacing:3px;font-size:1.35em">&#128752; Everton GPS PRO</h2>
         <div class="gps-signal" id="gpsSignal"><span></span><span></span><span></span><span></span></div>
     </div>
-    <div style="font-size:.68em;color:#888;font-family:'Share Tech Mono',monospace;letter-spacing:2px;margin-top:4px">RASTREAMENTO EM TEMPO REAL</div>
+    <div style="font-size:.68em;color:#888;font-family:monospace;letter-spacing:2px;margin-top:4px">RASTREAMENTO EM TEMPO REAL</div>
 </header>
 
 <div class="map-wrapper">
     <div id="map"></div>
     <div class="map-controls-overlay">
-        <button class="map-btn" title="Centralizar"   onclick="window.centralizarMapa()">📍</button>
-        <button class="map-btn" title="Limpar rota"   onclick="window.limparRota()">🗑️</button>
-        <button class="map-btn" title="Cache offline" onclick="window.cachearAreaAtual()" id="btnCache">💾</button>
+        <button class="map-btn" title="Centralizar"   onclick="centralizarMapa()">&#128205;</button>
+        <button class="map-btn" title="Limpar rota"   onclick="limparRota()">&#128465;</button>
+        <button class="map-btn" title="Cache offline" onclick="cachearAreaAtual()" id="btnCache">&#128190;</button>
     </div>
 </div>
-<div id="cacheInfo">🗺️ TILES: carregando da internet</div>
+<div id="cacheInfo">&#128506; TILES: carregando da internet</div>
 
 <div class="controls">
-    <input type="text" id="veiculoID" value="VEICULO-01" placeholder="ID do veículo">
+    <input type="text" id="veiculoID" value="VEICULO-01" placeholder="ID do veiculo">
 
     <div id="offlineBadge">
         <span class="badge-dot"></span>
-        <span>MODO OFFLINE — Gravando localmente</span>
+        <span>MODO OFFLINE - Gravando localmente</span>
         <span id="pendingCount">0 pendentes</span>
     </div>
 
     <div id="stopBadge">
-        <span class="stop-icon">🅿️</span>
+        <span class="stop-icon">P</span>
         <div class="stop-info">
-            <span class="stop-title">VEÍCULO PARADO</span>
-            <span class="stop-detail" id="stopAddress">Calculando endereço…</span>
+            <span class="stop-title">VEICULO PARADO</span>
+            <span class="stop-detail" id="stopAddress">Calculando endereco...</span>
         </div>
         <span id="stopTimer">0:00</span>
     </div>
 
-    <button id="btnAtualizar" onclick="window.atualizarLocalizacao()">🛰️ ATUALIZAR LOCALIZAÇÃO</button>
+    <button id="btnAtualizar" onclick="atualizarLocalizacao()">&#128752; ATUALIZAR LOCALIZACAO</button>
 
     <div class="metrics-grid" id="metricsGrid" style="display:none">
         <div class="metric-card">
-            <span class="metric-label">Velocidade</span>
-            <span class="metric-value" id="mv-vel">0</span>
-            <span class="metric-unit">KM/H</span>
+            <div class="metric-label">Velocidade</div>
+            <div class="metric-value" id="mv-vel">0</div>
+            <div class="metric-unit">KM/H</div>
         </div>
         <div class="metric-card">
-            <span class="metric-label">Precisão GPS</span>
-            <span class="metric-value" id="mv-acc">—</span>
-            <span class="metric-unit">METROS</span>
+            <div class="metric-label">Precisao GPS</div>
+            <div class="metric-value" id="mv-acc">-</div>
+            <div class="metric-unit">METROS</div>
         </div>
         <div class="metric-card" id="mc-pts">
-            <span class="metric-label">Pontos</span>
-            <span class="metric-value" id="mv-pts">0</span>
-            <span class="metric-unit">REGISTROS</span>
+            <div class="metric-label">Pontos</div>
+            <div class="metric-value" id="mv-pts">0</div>
+            <div class="metric-unit">REGISTROS</div>
         </div>
         <div class="metric-card">
-            <span class="metric-label">Atualização</span>
-            <span class="metric-value" id="mv-time" style="font-size:1.1em">—</span>
-            <span class="metric-unit">HORÁRIO</span>
+            <div class="metric-label">Atualizacao</div>
+            <div class="metric-value" id="mv-time" style="font-size:1.1em">-</div>
+            <div class="metric-unit">HORARIO</div>
         </div>
     </div>
 
     <div class="status-box">
-        <span class="status-label-tag">● SISTEMA</span>
+        <span class="status-label-tag">SISTEMA</span>
         <span class="status-dot" id="statusDot"></span>
-        <div id="statusText">Inicializando GPS...</div>
+        <span id="statusText">Inicializando GPS...</span>
     </div>
 
     <div id="errorLog" class="error-log"></div>
 
-    <!-- ══════════════════════════════════════
-         PAINEL HISTÓRICO
-    ══════════════════════════════════════ -->
     <div id="historicoPanel">
         <div class="hist-header" onclick="toggleHistorico()">
-            <div class="hist-header-left">
-                🗂️ HISTÓRICO DE REGISTROS
-            </div>
-            <span class="hist-toggle" id="histToggleIcon">▼</span>
+            <div class="hist-header-left">HISTORICO DE REGISTROS</div>
+            <span class="hist-toggle" id="histToggleIcon">v</span>
         </div>
         <div class="hist-body" id="histBody">
             <div class="hist-filters">
                 <div>
-                    <div style="font-size:.68em;color:#666;font-family:'Share Tech Mono',monospace;margin-bottom:4px;letter-spacing:1px">DATA INÍCIO</div>
+                    <div style="font-size:.68em;color:#666;font-family:monospace;margin-bottom:4px;letter-spacing:1px">DATA INICIO</div>
                     <input type="date" id="filtroDataInicio">
                 </div>
                 <div>
-                    <div style="font-size:.68em;color:#666;font-family:'Share Tech Mono',monospace;margin-bottom:4px;letter-spacing:1px">DATA FIM</div>
+                    <div style="font-size:.68em;color:#666;font-family:monospace;margin-bottom:4px;letter-spacing:1px">DATA FIM</div>
                     <input type="date" id="filtroDataFim">
                 </div>
             </div>
             <div class="hist-filters-row">
                 <div>
-                    <div style="font-size:.68em;color:#666;font-family:'Share Tech Mono',monospace;margin-bottom:4px;letter-spacing:1px">HORA INÍCIO</div>
+                    <div style="font-size:.68em;color:#666;font-family:monospace;margin-bottom:4px;letter-spacing:1px">HORA INICIO</div>
                     <input type="time" id="filtroHoraInicio">
                 </div>
                 <div>
-                    <div style="font-size:.68em;color:#666;font-family:'Share Tech Mono',monospace;margin-bottom:4px;letter-spacing:1px">HORA FIM</div>
+                    <div style="font-size:.68em;color:#666;font-family:monospace;margin-bottom:4px;letter-spacing:1px">HORA FIM</div>
                     <input type="time" id="filtroHoraFim">
                 </div>
                 <div>
-                    <div style="font-size:.68em;color:#666;font-family:'Share Tech Mono',monospace;margin-bottom:4px;letter-spacing:1px">TIPO</div>
-                    <select id="filtroTipo" style="padding:8px 6px;border:1px solid #2a2a2a;border-radius:8px;background:#252525;color:white;font-size:.82em;width:100%">
+                    <div style="font-size:.68em;color:#666;font-family:monospace;margin-bottom:4px;letter-spacing:1px">TIPO</div>
+                    <select id="filtroTipo">
                         <option value="">Todos</option>
                         <option value="normal">Normal</option>
                         <option value="parada_detectada">Paradas</option>
@@ -332,526 +321,788 @@
                     </select>
                 </div>
             </div>
-            <button class="btn-buscar" id="btnBuscarHistorico" onclick="window.buscarHistorico()">🔍 BUSCAR REGISTROS</button>
+            <button class="btn-buscar" id="btnBuscarHistorico" onclick="buscarHistorico()">BUSCAR REGISTROS</button>
             <div id="histCount" class="hist-count"></div>
             <div id="histResultados"><div class="hist-empty">Use os filtros acima para buscar registros</div></div>
-            <button id="histMapBtn" onclick="window.mostrarRotaHistorico()">🗺️ VER ROTA NO MAPA</button>
+            <button id="histMapBtn" onclick="mostrarRotaHistorico()">VER ROTA NO MAPA</button>
         </div>
     </div>
 
-</div><!-- /controls -->
+</div>
 
-<!-- Service Worker inline -->
-<script>
-(function registerSW(){
-    const SW_CODE = `
-const CACHE = 'osm-tiles-v1';
-const ORIGINS = ['https://a.tile.openstreetmap.org','https://b.tile.openstreetmap.org','https://c.tile.openstreetmap.org'];
-self.addEventListener('install',  e => self.skipWaiting());
-self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
-self.addEventListener('fetch', e => {
-    const url = e.request.url;
-    if (!ORIGINS.some(o => url.startsWith(o))) return;
-    e.respondWith(caches.open(CACHE).then(async cache => {
-        const cached = await cache.match(e.request);
-        if (cached) return cached;
-        try { const r = await fetch(e.request); if(r.ok) cache.put(e.request,r.clone()); return r; }
-        catch { return new Response('',{status:404}); }
-    }));
-});
-self.addEventListener('message', async e => {
-    if(e.data==='count-cache'){
-        const c=await caches.open(CACHE); const k=await c.keys();
-        e.source.postMessage({type:'cache-count',count:k.length});
-    }
-});`;
-    try {
-        const blob = new Blob([SW_CODE],{type:'application/javascript'});
-        navigator.serviceWorker.register(URL.createObjectURL(blob),{scope:'/'})
-            .catch(e=>console.warn('[SW]',e.message));
-        navigator.serviceWorker.addEventListener('message', e => {
-            if(e.data?.type==='cache-count'){
-                const el=document.getElementById('cacheInfo');
-                el.textContent = e.data.count>0
-                    ? `🗺️ TILES EM CACHE: ${e.data.count} tiles offline`
-                    : '🗺️ TILES: carregando da internet';
-                el.className = e.data.count>0 ? 'cached' : '';
-            }
-        });
-    } catch(e){ console.warn('[SW Blob]',e.message); }
-})();
-</script>
-
+<!-- Leaflet -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script type="module">
-import { initializeApp }               from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, push, get, query, orderByChild, startAt, endAt }
-                                       from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+<!-- Firebase COMPAT (funciona sem módulos ES6, sem type=module) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-const firebaseConfig = {
+<script>
+// ═══════════════════════════════════════════════════
+//  FIREBASE CONFIG
+// ═══════════════════════════════════════════════════
+var firebaseConfig = {
     apiKey:            "AIzaSyDwKIS8wL3D7OuaysVFWz3D7Oua",
     authDomain:        "everton-gps.firebaseapp.com",
     databaseURL:       "https://everton-gps-default-rtdb.firebaseio.com",
     projectId:         "everton-gps",
     storageBucket:     "everton-gps.appspot.com",
     messagingSenderId: "688936933095",
-    appId:             "1:688936933095:web:5508a8e1008f1b4020a1db",
-    measurementId:     "G-X14EWTZN18"
+    appId:             "1:688936933095:web:5508a8e1008f1b4020a1db"
 };
-const app = initializeApp(firebaseConfig);
-const db  = getDatabase(app);
 
-// ── DOM ──────────────────────────────────────────────────────────
-const statusText     = document.getElementById('statusText');
-const errorLog       = document.getElementById('errorLog');
-const offlineBadge   = document.getElementById('offlineBadge');
-const pendingCountEl = document.getElementById('pendingCount');
-const stopBadge      = document.getElementById('stopBadge');
-const stopTimerEl    = document.getElementById('stopTimer');
-const stopAddressEl  = document.getElementById('stopAddress');
-const mcPts          = document.getElementById('mc-pts');
-
-// ── Estado ───────────────────────────────────────────────────────
-let map, marcador, linhaRota = null, stopMarker = null;
-let historicoRota = [];
-let totalRegistros = 0;
-let historicoResultados = []; // cache dos resultados da última busca
-
-// ── Parada ───────────────────────────────────────────────────────
-const STOP_RADIUS_M  = 30;
-const STOP_THRESHOLD = 120;
-let stopState = { active:false, lat:null, lon:null, since:null, alerted:false, address:'', timerInterval:null };
-
-function dist(la1,lo1,la2,lo2){
-    const R=6371000, dLat=(la2-la1)*Math.PI/180, dLon=(lo2-lo1)*Math.PI/180;
-    const a=Math.sin(dLat/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLon/2)**2;
-    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+var db = null;
+try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+} catch(e) {
+    console.warn('[Firebase] falhou, modo offline:', e.message);
 }
-function fmtDur(s){ const m=Math.floor(s/60); return `${m}:${String(Math.floor(s%60)).padStart(2,'0')}`; }
 
-function iniciarTimerParada(){
-    if(stopState.timerInterval) clearInterval(stopState.timerInterval);
-    stopState.timerInterval = setInterval(()=>{
-        if(!stopState.active||!stopState.since) return;
-        stopTimerEl.textContent = fmtDur((Date.now()-stopState.since)/1000);
-    },1000);
+// ═══════════════════════════════════════════════════
+//  DOM
+// ═══════════════════════════════════════════════════
+var statusText     = document.getElementById('statusText');
+var errorLog       = document.getElementById('errorLog');
+var offlineBadge   = document.getElementById('offlineBadge');
+var pendingCountEl = document.getElementById('pendingCount');
+var stopBadge      = document.getElementById('stopBadge');
+var stopTimerEl    = document.getElementById('stopTimer');
+var stopAddressEl  = document.getElementById('stopAddress');
+var mcPts          = document.getElementById('mc-pts');
+
+// ═══════════════════════════════════════════════════
+//  ESTADO
+// ═══════════════════════════════════════════════════
+var map, marcador, linhaRota = null, stopMarker = null;
+var historicoRota = [];
+var totalRegistros = 0;
+var historicoResultados = [];
+
+// ═══════════════════════════════════════════════════
+//  DETECÇÃO DE PARADA
+// ═══════════════════════════════════════════════════
+var STOP_RADIUS_M  = 30;
+var STOP_THRESHOLD = 120;
+var stopState = {
+    active:false, lat:null, lon:null, since:null,
+    alerted:false, address:'', timerInterval:null
+};
+
+function dist(la1, lo1, la2, lo2) {
+    var R = 6371000;
+    var dLat = (la2 - la1) * Math.PI / 180;
+    var dLon = (lo2 - lo1) * Math.PI / 180;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*
+            Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
-function pararTimerParada(){ if(stopState.timerInterval){ clearInterval(stopState.timerInterval); stopState.timerInterval=null; } }
 
-async function avaliarParada(lat, lon, velocidade){
-    const vel = Number(velocidade);
-    if(!stopState.active){ stopState={...stopState, active:true, lat, lon, since:Date.now(), alerted:false}; }
+function fmtDur(s) {
+    var m = Math.floor(s / 60);
+    var sec = Math.floor(s % 60);
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+}
 
-    const d = dist(stopState.lat, stopState.lon, lat, lon);
-    const secsParado = (Date.now()-stopState.since)/1000;
+function iniciarTimerParada() {
+    if (stopState.timerInterval) clearInterval(stopState.timerInterval);
+    stopState.timerInterval = setInterval(function() {
+        if (!stopState.active || !stopState.since) return;
+        stopTimerEl.textContent = fmtDur((Date.now() - stopState.since) / 1000);
+    }, 1000);
+}
 
-    if(d > STOP_RADIUS_M || vel > 5){
-        if(stopState.alerted){
+function pararTimerParada() {
+    if (stopState.timerInterval) {
+        clearInterval(stopState.timerInterval);
+        stopState.timerInterval = null;
+    }
+}
+
+function avaliarParada(lat, lon, velocidade, callback) {
+    var vel = Number(velocidade);
+    if (!stopState.active) {
+        stopState.active = true;
+        stopState.lat = lat;
+        stopState.lon = lon;
+        stopState.since = Date.now();
+        stopState.alerted = false;
+    }
+
+    var d = dist(stopState.lat, stopState.lon, lat, lon);
+    var secsParado = (Date.now() - stopState.since) / 1000;
+
+    if (d > STOP_RADIUS_M || vel > 5) {
+        if (stopState.alerted) {
+            stopBadge.className = 'visible' in stopBadge ? stopBadge.className.replace(' visible','') : stopBadge.className;
             stopBadge.classList.remove('visible');
             pararTimerParada();
-            if(stopMarker){ map.removeLayer(stopMarker); stopMarker=null; }
+            if (stopMarker) { map.removeLayer(stopMarker); stopMarker = null; }
             mcPts.classList.remove('stopped');
-            if(navigator.onLine){
-                const vID = document.getElementById('veiculoID').value||'VEICULO-01';
-                await push(ref(db,`veiculos/${vID}/historico`),{
-                    tipo:'retomada_movimento', lat, lon,
+            if (navigator.onLine && db) {
+                var vID = document.getElementById('veiculoID').value || 'VEICULO-01';
+                db.ref('veiculos/' + vID + '/historico').push({
+                    tipo:'retomada_movimento', lat:lat, lon:lon,
                     duracaoParadaSegundos:Math.round(secsParado),
                     timestamp:Date.now(), hora:new Date().toLocaleTimeString(),
                     data:new Date().toLocaleDateString('pt-BR'),
                     dataISO:new Date().toISOString().slice(0,10)
-                }).catch(()=>{});
+                });
             }
         }
-        stopState={active:true,lat,lon,since:Date.now(),alerted:false,address:'',timerInterval:stopState.timerInterval};
+        stopState = {
+            active:true, lat:lat, lon:lon, since:Date.now(),
+            alerted:false, address:'', timerInterval:stopState.timerInterval
+        };
+        if (callback) callback();
         return;
     }
 
-    if(secsParado >= STOP_THRESHOLD && !stopState.alerted){
+    if (secsParado >= STOP_THRESHOLD && !stopState.alerted) {
         stopState.alerted = true;
-        let endParada = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-        if(navigator.onLine){ const e=await buscarEndereco(lat,lon); if(e) endParada=`${e.rua}, ${e.bairro} — ${e.cidade}`; }
-        stopState.address = endParada;
-        stopAddressEl.textContent = endParada;
-        stopTimerEl.textContent = fmtDur(secsParado);
-        stopBadge.classList.add('visible');
-        mcPts.classList.add('stopped');
-        iniciarTimerParada();
+        var endParada = lat.toFixed(5) + ', ' + lon.toFixed(5);
 
-        if(stopMarker) map.removeLayer(stopMarker);
-        const stopIcon = L.divIcon({
-            className:'',
-            html:`<div style="background:#ff6b35;border:2px solid #fff;border-radius:50%;width:18px;height:18px;box-shadow:0 0 10px rgba(255,107,53,.8)"></div>`,
-            iconSize:[18,18], iconAnchor:[9,9]
-        });
-        stopMarker = L.marker([lat,lon],{icon:stopIcon})
-            .bindPopup(`<b>🅿️ Parada detectada</b><br>${endParada}<br>⏱️ ${fmtDur(secsParado)}`)
-            .addTo(map).openPopup();
+        function finalizarParada(endStr) {
+            stopState.address = endStr;
+            stopAddressEl.textContent = endStr;
+            stopTimerEl.textContent = fmtDur(secsParado);
+            stopBadge.classList.add('visible');
+            mcPts.classList.add('stopped');
+            iniciarTimerParada();
 
-        if(navigator.onLine){
-            const vID = document.getElementById('veiculoID').value||'VEICULO-01';
-            await push(ref(db,`veiculos/${vID}/historico`),{
-                tipo:'parada_detectada', lat, lon, endereco:endParada,
-                duracaoSegundos:Math.round(secsParado),
-                timestamp:Date.now(), hora:new Date().toLocaleTimeString(),
-                data:new Date().toLocaleDateString('pt-BR'),
-                dataISO:new Date().toISOString().slice(0,10)
-            }).catch(()=>{});
+            if (stopMarker) map.removeLayer(stopMarker);
+            var stopIcon = L.divIcon({
+                className:'',
+                html:'<div style="background:#ff6b35;border:2px solid #fff;border-radius:50%;width:18px;height:18px"></div>',
+                iconSize:[18,18], iconAnchor:[9,9]
+            });
+            stopMarker = L.marker([lat, lon], {icon:stopIcon})
+                .bindPopup('<b>Parada</b><br>' + endStr + '<br>' + fmtDur(secsParado))
+                .addTo(map).openPopup();
+
+            if (navigator.onLine && db) {
+                var vID2 = document.getElementById('veiculoID').value || 'VEICULO-01';
+                db.ref('veiculos/' + vID2 + '/historico').push({
+                    tipo:'parada_detectada', lat:lat, lon:lon, endereco:endStr,
+                    duracaoSegundos:Math.round(secsParado),
+                    timestamp:Date.now(), hora:new Date().toLocaleTimeString(),
+                    data:new Date().toLocaleDateString('pt-BR'),
+                    dataISO:new Date().toISOString().slice(0,10)
+                });
+            }
+
+            document.getElementById('statusDot').className = 'status-dot stop';
+            statusText.innerHTML = 'PARADO ha ' + fmtDur(secsParado) + '<br>' + endStr;
+            if (callback) callback();
         }
 
-        document.getElementById('statusDot').className='status-dot stop';
-        statusText.innerHTML=`🅿️ <b>Veículo parado</b> há ${fmtDur(secsParado)}<br>📍 ${endParada}`;
+        if (navigator.onLine) {
+            buscarEndereco(lat, lon, function(end) {
+                if (end) endParada = end.rua + ', ' + end.bairro + ' - ' + end.cidade;
+                finalizarParada(endParada);
+            });
+        } else {
+            finalizarParada(endParada);
+        }
+        return;
     }
+
+    if (callback) callback();
 }
 
-// ── IndexedDB ────────────────────────────────────────────────────
-const IDB_NAME='gps_offline', STORE='fila';
-function abrirIDB(){
-    return new Promise((res,rej)=>{
-        const req=indexedDB.open(IDB_NAME,1);
-        req.onupgradeneeded=e=>{ const idb=e.target.result; if(!idb.objectStoreNames.contains(STORE)) idb.createObjectStore(STORE,{autoIncrement:true}); };
-        req.onsuccess=e=>res(e.target.result);
-        req.onerror=e=>rej(e.target.error);
+// ═══════════════════════════════════════════════════
+//  INDEXEDDB (armazenamento offline)
+// ═══════════════════════════════════════════════════
+var IDB_NAME = 'gps_offline';
+var STORE    = 'fila';
+
+function abrirIDB(cb) {
+    try {
+        var req = indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = function(e) {
+            var idb = e.target.result;
+            if (!idb.objectStoreNames.contains(STORE)) {
+                idb.createObjectStore(STORE, {autoIncrement:true});
+            }
+        };
+        req.onsuccess = function(e) { cb(null, e.target.result); };
+        req.onerror   = function(e) { cb(e.target.error, null); };
+    } catch(e) { cb(e, null); }
+}
+
+function salvarNaFila(dados, cb) {
+    abrirIDB(function(err, idb) {
+        if (err) { if (cb) cb(err); return; }
+        var tx = idb.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).add(dados);
+        tx.oncomplete = function() { if (cb) cb(null); };
+        tx.onerror    = function() { if (cb) cb(tx.error); };
     });
 }
-async function salvarNaFila(d){ const idb=await abrirIDB(); const tx=idb.transaction(STORE,'readwrite'); tx.objectStore(STORE).add(d); return new Promise((r,j)=>{tx.oncomplete=r;tx.onerror=()=>j(tx.error);}); }
-async function lerChaves(){ const idb=await abrirIDB(); return new Promise((r,j)=>{ const tx=idb.transaction(STORE,'readonly'); const req=tx.objectStore(STORE).getAllKeys(); req.onsuccess=()=>r(req.result); req.onerror=()=>j(req.error); }); }
-async function lerItem(idb,chave){ return new Promise((r,j)=>{ const tx=idb.transaction(STORE,'readonly'); const req=tx.objectStore(STORE).get(chave); req.onsuccess=()=>r(req.result); req.onerror=()=>j(req.error); }); }
-async function removerDaFila(chave){ const idb=await abrirIDB(); const tx=idb.transaction(STORE,'readwrite'); tx.objectStore(STORE).delete(chave); return new Promise((r,j)=>{tx.oncomplete=r;tx.onerror=()=>j(tx.error);}); }
-async function contarFila(){ return (await lerChaves()).length; }
-async function atualizarBadge(){
-    const n=await contarFila();
-    if(!navigator.onLine||n>0){ offlineBadge.classList.add('visible'); pendingCountEl.textContent=`${n} pendente${n!==1?'s':''}`; }
-    else offlineBadge.classList.remove('visible');
+
+function lerTodasChaves(cb) {
+    abrirIDB(function(err, idb) {
+        if (err) { cb(err, []); return; }
+        var tx  = idb.transaction(STORE, 'readonly');
+        var req = tx.objectStore(STORE).getAllKeys();
+        req.onsuccess = function() { cb(null, req.result); };
+        req.onerror   = function() { cb(req.error, []); };
+    });
 }
 
-// ── Sincronização COM busca de endereço retroativa ───────────────
-let sincronizando=false;
-async function sincronizarFila(){
-    if(sincronizando||!navigator.onLine) return;
-    sincronizando=true;
-    try {
-        const chaves=await lerChaves();
-        if(!chaves.length){ sincronizando=false; return; }
-        const idb=await abrirIDB();
-        let sincronizados=0;
-        for(const chave of chaves){
-            const item=await lerItem(idb,chave);
-            if(!item) continue;
-            const vID=item.vID||document.getElementById('veiculoID').value||'VEICULO-01';
-            const dados=item.dados;
+function lerItem(idb, chave, cb) {
+    var tx  = idb.transaction(STORE, 'readonly');
+    var req = tx.objectStore(STORE).get(chave);
+    req.onsuccess = function() { cb(null, req.result); };
+    req.onerror   = function() { cb(req.error, null); };
+}
 
-            // ── Busca endereço retroativamente se não tiver ──
-            if(!dados.endereco && dados.lat && dados.lon){
-                statusText.innerHTML=`🔄 Recuperando endereço offline ${sincronizados+1}/${chaves.length}...`;
-                const end=await buscarEndereco(dados.lat, dados.lon);
-                if(end){
-                    dados.endereco=end;
-                    dados.enderecoCompleto=`${end.rua}, ${end.bairro} — ${end.cidade}/${end.uf}`;
-                }
-                // Respeita limite de 1 req/s do Nominatim
-                await new Promise(r=>setTimeout(r,1100));
-            }
+function removerDaFila(chave, cb) {
+    abrirIDB(function(err, idb) {
+        if (err) { if (cb) cb(err); return; }
+        var tx = idb.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).delete(chave);
+        tx.oncomplete = function() { if (cb) cb(null); };
+        tx.onerror    = function() { if (cb) cb(tx.error); };
+    });
+}
 
-            // Garante campos de data/hora para busca
-            if(!dados.dataISO && dados.timestamp){
-                const d=new Date(dados.timestamp);
-                dados.dataISO=d.toISOString().slice(0,10);
-                dados.data=d.toLocaleDateString('pt-BR');
-                dados.hora=dados.hora||d.toLocaleTimeString();
-            }
+function contarFila(cb) {
+    lerTodasChaves(function(err, keys) { cb(err ? 0 : keys.length); });
+}
 
-            await push(ref(db,`veiculos/${vID}/historico`), dados);
-            await removerDaFila(chave);
-            sincronizados++;
+function atualizarBadge() {
+    contarFila(function(n) {
+        if (!navigator.onLine || n > 0) {
+            offlineBadge.classList.add('visible');
+            pendingCountEl.textContent = n + (n !== 1 ? ' pendentes' : ' pendente');
+        } else {
+            offlineBadge.classList.remove('visible');
         }
-        await atualizarBadge();
-        statusText.innerHTML=`✅ ${sincronizados} registros sincronizados com endereços completos!`;
-    } catch(e){ console.warn('Sync error:',e); }
-    finally { sincronizando=false; }
+    });
 }
 
-window.addEventListener('online',  ()=>{ atualizarBadge(); sincronizarFila(); });
-window.addEventListener('offline', ()=>{ atualizarBadge(); });
+// ═══════════════════════════════════════════════════
+//  SINCRONIZAÇÃO OFFLINE → FIREBASE
+// ═══════════════════════════════════════════════════
+var sincronizando = false;
 
-// ── Mapa ─────────────────────────────────────────────────────────
-const carroIcone=L.icon({ iconUrl:'https://cdn-icons-png.flaticon.com/512/744/744465.png', iconSize:[40,40], iconAnchor:[20,20] });
-function initMap(){
-    map=L.map('map').setView([-23.5505,-46.6333],16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
-    marcador=L.marker([-23.5505,-46.6333],{icon:carroIcone}).addTo(map);
+function sincronizarFila() {
+    if (sincronizando || !navigator.onLine || !db) return;
+    sincronizando = true;
+
+    lerTodasChaves(function(err, chaves) {
+        if (err || !chaves.length) { sincronizando = false; return; }
+
+        abrirIDB(function(idbErr, idb) {
+            if (idbErr) { sincronizando = false; return; }
+
+            var idx = 0;
+            var sincronizados = 0;
+
+            function processarProximo() {
+                if (idx >= chaves.length) {
+                    sincronizando = false;
+                    atualizarBadge();
+                    if (sincronizados > 0) {
+                        statusText.textContent = sincronizados + ' registros sincronizados!';
+                    }
+                    return;
+                }
+
+                var chave = chaves[idx++];
+                lerItem(idb, chave, function(err2, item) {
+                    if (err2 || !item) { processarProximo(); return; }
+
+                    var vID   = item.vID || document.getElementById('veiculoID').value || 'VEICULO-01';
+                    var dados = item.dados;
+
+                    if (!dados.dataISO && dados.timestamp) {
+                        var d = new Date(dados.timestamp);
+                        dados.dataISO = d.toISOString().slice(0, 10);
+                        dados.data    = d.toLocaleDateString('pt-BR');
+                        dados.hora    = dados.hora || d.toLocaleTimeString();
+                    }
+
+                    // Busca endereço retroativo se online
+                    function enviarParaFirebase() {
+                        db.ref('veiculos/' + vID + '/historico').push(dados)
+                            .then(function() {
+                                removerDaFila(chave, function() {
+                                    sincronizados++;
+                                    // Rate limit Nominatim: 1/s
+                                    setTimeout(processarProximo, 1100);
+                                });
+                            })
+                            .catch(function() { processarProximo(); });
+                    }
+
+                    if (!dados.endereco && dados.lat && dados.lon && navigator.onLine) {
+                        buscarEndereco(dados.lat, dados.lon, function(end) {
+                            if (end) {
+                                dados.endereco = end;
+                                dados.enderecoCompleto = end.rua + ', ' + end.bairro + ' - ' + end.cidade + '/' + end.uf;
+                            }
+                            enviarParaFirebase();
+                        });
+                    } else {
+                        enviarParaFirebase();
+                    }
+                });
+            }
+
+            processarProximo();
+        });
+    });
 }
+
+window.addEventListener('online',  function() { atualizarBadge(); sincronizarFila(); });
+window.addEventListener('offline', function() { atualizarBadge(); });
+
+// ═══════════════════════════════════════════════════
+//  MAPA
+// ═══════════════════════════════════════════════════
+var carroIcone = L.icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png',
+    iconSize:[40,40], iconAnchor:[20,20]
+});
+
+// Fallback caso a imagem externa falhe (modo offline total)
+var carroIconeFallback = L.divIcon({
+    className:'',
+    html:'<div style="background:#00ff88;border:3px solid #fff;border-radius:50%;width:20px;height:20px;box-shadow:0 0 8px #00ff88"></div>',
+    iconSize:[20,20], iconAnchor:[10,10]
+});
+
+function initMap() {
+    map = L.map('map', {
+        zoomControl: true,
+        attributionControl: false
+    }).setView([-23.5505, -46.6333], 16);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution:'© OpenStreetMap',
+        maxZoom:19,
+        crossOrigin: true
+    }).addTo(map);
+
+    // Tenta ícone de carro, fallback para círculo verde
+    var ic = carroIcone;
+    try {
+        var testImg = new Image();
+        testImg.onerror = function() {
+            if (marcador) marcador.setIcon(carroIconeFallback);
+        };
+        testImg.src = 'https://cdn-icons-png.flaticon.com/512/744/744465.png';
+    } catch(e) { ic = carroIconeFallback; }
+
+    marcador = L.marker([-23.5505, -46.6333], {icon:ic}).addTo(map);
+}
+
 initMap();
 
-// ── Helpers ──────────────────────────────────────────────────────
-function mostrarErro(o,m){
-    errorLog.style.display='block'; errorLog.innerHTML+=`[${o}] ${m}<br>`;
-    document.getElementById('statusDot').className='status-dot error';
-    document.getElementById('gpsSignal').className='gps-signal';
+// ═══════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════
+function mostrarErro(origem, msg) {
+    errorLog.style.display = 'block';
+    errorLog.innerHTML += '[' + origem + '] ' + msg + '<br>';
+    document.getElementById('statusDot').className = 'status-dot error';
+    document.getElementById('gpsSignal').className = 'gps-signal';
 }
 
-async function buscarEndereco(lat,lon){
+// Busca de endereço via Nominatim — com timeout compatível
+function buscarEndereco(lat, lon, cb) {
+    if (!navigator.onLine) { cb(null); return; }
+    var url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=' +
+              lat + '&lon=' + lon + '&accept-language=pt-BR';
+
+    // XMLHttpRequest para compatibilidade máxima
+    var xhr = new XMLHttpRequest();
+    var done = false;
+    var timer = setTimeout(function() {
+        if (!done) { done = true; xhr.abort(); cb(null); }
+    }, 8000);
+
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState !== 4 || done) return;
+        done = true;
+        clearTimeout(timer);
+        try {
+            var d = JSON.parse(xhr.responseText);
+            cb({
+                rua:    d.address.road || 'Rua nao identificada',
+                bairro: d.address.suburb || d.address.neighbourhood || d.address.village || '',
+                cidade: d.address.city || d.address.town || d.address.municipality || '',
+                uf:     d.address.state || ''
+            });
+        } catch(e) { cb(null); }
+    };
+    xhr.onerror = function() {
+        if (!done) { done = true; clearTimeout(timer); cb(null); }
+    };
     try {
-        const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=pt-BR`);
-        const d=await r.json();
-        return {
-            rua:    d.address.road||"Rua não identificada",
-            bairro: d.address.suburb||d.address.neighbourhood||d.address.village||"",
-            cidade: d.address.city||d.address.town||d.address.municipality||"",
-            uf:     d.address.state||""
-        };
-    } catch { return null; }
+        xhr.open('GET', url, true);
+        xhr.send();
+    } catch(e) { done = true; clearTimeout(timer); cb(null); }
 }
 
-function atualizarMapaLocal(dados,vID,endereco){
-    const pos=[dados.lat,dados.lon];
+function atualizarMapaLocal(dados, vID, endereco) {
+    var pos = [dados.lat, dados.lon];
     historicoRota.push(pos);
-    if(historicoRota.length>50) historicoRota.shift();
-    marcador.setLatLng(pos); map.flyTo(pos,17);
-    if(linhaRota) map.removeLayer(linhaRota);
-    linhaRota=L.polyline(historicoRota,{color:'#00ff88',weight:5,opacity:.8}).addTo(map);
-    const endComp=endereco?`${endereco.rua}, ${endereco.bairro} — ${endereco.cidade}/${endereco.uf}`:`${dados.lat.toFixed(5)}, ${dados.lon.toFixed(5)}`;
-    marcador.bindPopup(`<b>${vID}</b><br>📍 ${endComp}<br>🚗 ${dados.velocidade} km/h`).openPopup();
+    if (historicoRota.length > 50) historicoRota.shift();
+    marcador.setLatLng(pos);
+    map.flyTo(pos, 17);
+    if (linhaRota) map.removeLayer(linhaRota);
+    linhaRota = L.polyline(historicoRota, {color:'#00ff88', weight:5, opacity:.8}).addTo(map);
+
+    var endComp = endereco
+        ? (endereco.rua + ', ' + endereco.bairro + ' - ' + endereco.cidade + '/' + endereco.uf)
+        : (dados.lat.toFixed(5) + ', ' + dados.lon.toFixed(5));
+
+    marcador.bindPopup('<b>' + vID + '</b><br>' + endComp + '<br>' + dados.velocidade + ' km/h').openPopup();
+
     totalRegistros++;
-    document.getElementById('metricsGrid').style.display='grid';
-    document.getElementById('mv-vel').textContent=dados.velocidade;
-    document.getElementById('mv-acc').textContent=dados.acuracia;
-    document.getElementById('mv-pts').textContent=totalRegistros;
-    document.getElementById('mv-time').textContent=dados.hora;
-    document.getElementById('statusDot').className='status-dot active';
-    const sig=document.getElementById('gpsSignal');
-    sig.className='gps-signal'; sig.classList.add(Number(dados.acuracia)<=40?'active':'weak');
+    document.getElementById('metricsGrid').style.display = 'flex';
+    document.getElementById('mv-vel').textContent  = dados.velocidade;
+    document.getElementById('mv-acc').textContent  = dados.acuracia;
+    document.getElementById('mv-pts').textContent  = totalRegistros;
+    document.getElementById('mv-time').textContent = dados.hora;
+
+    document.getElementById('statusDot').className = 'status-dot active';
+    var sig = document.getElementById('gpsSignal');
+    sig.className = 'gps-signal ' + (Number(dados.acuracia) <= 40 ? 'active' : 'weak');
+
     return endComp;
 }
 
-// ── Envio principal ──────────────────────────────────────────────
-async function enviarDadosParaFirebase(dados){
-    const vID=document.getElementById('veiculoID').value||'VEICULO-01';
-    let endereco=null;
-    if(navigator.onLine){
-        statusText.innerHTML="📡 Buscando endereço de transmissão...";
-        endereco=await buscarEndereco(dados.lat,dados.lon);
-        if(endereco){
-            dados.endereco=endereco;
-            dados.enderecoCompleto=`${endereco.rua}, ${endereco.bairro} — ${endereco.cidade}/${endereco.uf}`;
-        }
-    }
+// ═══════════════════════════════════════════════════
+//  ENVIO PRINCIPAL
+// ═══════════════════════════════════════════════════
+function enviarDados(dados) {
+    var vID = document.getElementById('veiculoID').value || 'VEICULO-01';
 
-    // Campos indexáveis para busca por data/hora
-    const agora=new Date();
-    dados.dataISO   = agora.toISOString().slice(0,10);
-    dados.data      = agora.toLocaleDateString('pt-BR');
-    dados.tipo      = dados.tipo||'normal';
+    // Campos de data/hora sempre presentes
+    var agora = new Date();
+    dados.dataISO = agora.toISOString().slice(0, 10);
+    dados.data    = agora.toLocaleDateString('pt-BR');
+    dados.tipo    = dados.tipo || 'normal';
 
-    const endComp=atualizarMapaLocal(dados,vID,endereco);
-    await avaliarParada(dados.lat,dados.lon,dados.velocidade);
+    function continuar(endereco) {
+        var endComp = atualizarMapaLocal(dados, vID, endereco);
 
-    if(navigator.onLine){
-        try {
-            await set(ref(db,`veiculos/${vID}/atual`), dados);
-            await push(ref(db,`veiculos/${vID}/historico`), dados);
-            if(!stopState.alerted)
-                statusText.innerHTML=`✅ Transmitindo!<br>📍 <b>${endComp}</b><br>🚗 ${dados.velocidade} km/h | 🎯 ${dados.acuracia}m`;
-            sincronizarFila();
-        } catch(e){ mostrarErro("Firebase",e.message); }
-    } else {
-        try {
-            await salvarNaFila({vID,dados});
-            if(!stopState.alerted)
-                statusText.innerHTML=`💾 Sem internet — salvo localmente.<br>📍 ${dados.lat.toFixed(5)}, ${dados.lon.toFixed(5)}<br>🚗 ${dados.velocidade} km/h`;
-        } catch(e){ mostrarErro("IndexedDB",e.message); }
-    }
-    await atualizarBadge();
-}
-
-// ── API pública ──────────────────────────────────────────────────
-window.atualizarLocalizacao=function(){
-    const btn=document.getElementById('btnAtualizar');
-    if(btn) btn.classList.add('loading');
-    navigator.geolocation.getCurrentPosition(
-        async pos=>{
-            if(btn) btn.classList.remove('loading');
-            await enviarDadosParaFirebase({
-                lat:pos.coords.latitude, lon:pos.coords.longitude,
-                hora:new Date().toLocaleTimeString(), timestamp:Date.now(),
-                acuracia:Number(pos.coords.accuracy).toFixed(1),
-                velocidade:pos.coords.speed?(pos.coords.speed*3.6).toFixed(0):0
-            });
-        },
-        err=>{ if(btn) btn.classList.remove('loading'); mostrarErro("GPS","Sem resposta do hardware. Verifique a Localização/GPS."); },
-        {enableHighAccuracy:true,maximumAge:10000,timeout:20000}
-    );
-};
-
-window.centralizarMapa=function(){ if(historicoRota.length>0) map.flyTo(historicoRota[historicoRota.length-1],17); };
-window.limparRota=function(){
-    historicoRota=[]; if(linhaRota) map.removeLayer(linhaRota);
-    statusText.innerHTML="Histórico de rota limpo localmente.";
-};
-
-// ── Cache de tiles ───────────────────────────────────────────────
-window.cachearAreaAtual=async function(){
-    if(!map) return;
-    const btn=document.getElementById('btnCache'); btn.textContent='⏳'; btn.disabled=true;
-    const center=map.getCenter(), zoom=map.getZoom(), promises=[];
-    for(let z=Math.max(14,zoom-2);z<=Math.min(19,zoom+1);z++){
-        const t=latLonToTile(center.lat,center.lng,z);
-        for(let dx=-2;dx<=2;dx++) for(let dy=-2;dy<=2;dy++){
-            const tx=t.x+dx, ty=t.y+dy, sub=['a','b','c'][Math.abs(tx+ty)%3];
-            promises.push(fetch(`https://${sub}.tile.openstreetmap.org/${z}/${tx}/${ty}.png`,{mode:'no-cors'}).catch(()=>{}));
-        }
-    }
-    await Promise.allSettled(promises);
-    btn.textContent='✅'; setTimeout(()=>{btn.textContent='💾';btn.disabled=false;},2000);
-    atualizarContadorCache();
-    document.getElementById('cacheInfo').textContent=`🗺️ ${promises.length} tiles salvos offline nesta área`;
-    document.getElementById('cacheInfo').className='cached';
-};
-
-function latLonToTile(lat,lon,z){
-    const n=2**z;
-    return { x:Math.floor((lon+180)/360*n), y:Math.floor((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*n) };
-}
-function atualizarContadorCache(){ if(navigator.serviceWorker?.controller) navigator.serviceWorker.controller.postMessage('count-cache'); }
-
-// ══════════════════════════════════════════════════════════════════
-//  HISTÓRICO — busca por data/hora no Firebase
-// ══════════════════════════════════════════════════════════════════
-
-window.toggleHistorico=function(){
-    const body=document.getElementById('histBody');
-    const icon=document.getElementById('histToggleIcon');
-    body.classList.toggle('open');
-    icon.classList.toggle('open');
-    // Preenche data de hoje por padrão na primeira abertura
-    if(body.classList.contains('open') && !document.getElementById('filtroDataInicio').value){
-        const hoje=new Date().toISOString().slice(0,10);
-        document.getElementById('filtroDataInicio').value=hoje;
-        document.getElementById('filtroDataFim').value=hoje;
-    }
-};
-
-window.buscarHistorico=async function(){
-    const btn=document.getElementById('btnBuscarHistorico');
-    btn.disabled=true; btn.textContent='⏳ Buscando...';
-    const resultado=document.getElementById('histResultados');
-    const countEl=document.getElementById('histCount');
-    resultado.innerHTML='<div class="hist-empty">Buscando registros…</div>';
-    countEl.textContent='';
-    document.getElementById('histMapBtn').classList.remove('visible');
-
-    const dataInicio = document.getElementById('filtroDataInicio').value;
-    const dataFim    = document.getElementById('filtroDataFim').value;
-    const horaInicio = document.getElementById('filtroHoraInicio').value||'00:00';
-    const horaFim    = document.getElementById('filtroHoraFim').value||'23:59';
-    const filtroTipo = document.getElementById('filtroTipo').value;
-    const vID        = document.getElementById('veiculoID').value||'VEICULO-01';
-
-    if(!dataInicio){
-        resultado.innerHTML='<div class="hist-empty">Selecione ao menos a data início</div>';
-        btn.disabled=false; btn.textContent='🔍 BUSCAR REGISTROS'; return;
-    }
-
-    try {
-        // Converte filtros para timestamps
-        const tsInicio = new Date(`${dataInicio}T${horaInicio}:00`).getTime();
-        const tsFim    = new Date(`${(dataFim||dataInicio)}T${horaFim}:59`).getTime();
-
-        let registros=[];
-
-        if(navigator.onLine){
-            // Busca no Firebase com índice de timestamp
-            const q=query(
-                ref(db,`veiculos/${vID}/historico`),
-                orderByChild('timestamp'),
-                startAt(tsInicio),
-                endAt(tsFim)
-            );
-            const snap=await get(q);
-            if(snap.exists()){
-                snap.forEach(child=>{
-                    const d=child.val();
-                    if(!filtroTipo || d.tipo===filtroTipo || (!d.tipo && filtroTipo==='normal'))
-                        registros.push(d);
+        avaliarParada(dados.lat, dados.lon, dados.velocidade, function() {
+            if (navigator.onLine && db) {
+                db.ref('veiculos/' + vID + '/atual').set(dados);
+                db.ref('veiculos/' + vID + '/historico').push(dados)
+                    .then(function() {
+                        if (!stopState.alerted) {
+                            statusText.innerHTML = 'Transmitindo!<br>' + endComp + '<br>' +
+                                dados.velocidade + ' km/h | ' + dados.acuracia + 'm';
+                        }
+                        sincronizarFila();
+                    })
+                    .catch(function(e) { mostrarErro('Firebase', e.message); });
+            } else {
+                salvarNaFila({vID:vID, dados:dados}, function(err) {
+                    if (err) { mostrarErro('IndexedDB', err.message); return; }
+                    if (!stopState.alerted) {
+                        statusText.innerHTML = 'Sem internet - salvo localmente.<br>' +
+                            dados.lat.toFixed(5) + ', ' + dados.lon.toFixed(5) + '<br>' +
+                            dados.velocidade + ' km/h';
+                    }
+                    atualizarBadge();
                 });
             }
-        } else {
-            // Offline: busca no IndexedDB local
-            const chaves=await lerChaves();
-            const idb=await abrirIDB();
-            for(const c of chaves){
-                const item=await lerItem(idb,c);
-                if(!item) continue;
-                const d=item.dados;
-                if(d.timestamp>=tsInicio && d.timestamp<=tsFim){
-                    if(!filtroTipo || d.tipo===filtroTipo || (!d.tipo && filtroTipo==='normal'))
-                        registros.push(d);
-                }
-            }
-        }
-
-        // Ordena por timestamp crescente
-        registros.sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
-        historicoResultados=registros;
-
-        if(!registros.length){
-            resultado.innerHTML='<div class="hist-empty">Nenhum registro encontrado neste período</div>';
-            countEl.textContent=''; btn.disabled=false; btn.textContent='🔍 BUSCAR REGISTROS'; return;
-        }
-
-        countEl.textContent=`${registros.length} registro${registros.length!==1?'s':''} encontrado${registros.length!==1?'s':''}`;
-
-        resultado.innerHTML='';
-        registros.forEach((d,i)=>{
-            const tipo=d.tipo||'normal';
-            const tipoLabel={ parada_detectada:'parada', retomada_movimento:'retomada', normal:'normal' }[tipo]||'normal';
-            const tipoEmoji={ parada_detectada:'🅿️', retomada_movimento:'▶️', normal:'📍' }[tipo]||'📍';
-            const endStr=d.enderecoCompleto||(d.endereco?`${d.endereco.rua}, ${d.endereco.bairro} — ${d.endereco.cidade}`:`${(d.lat||0).toFixed(5)}, ${(d.lon||0).toFixed(5)}`);
-            const hora=d.hora||new Date(d.timestamp||0).toLocaleTimeString();
-            const data=d.data||new Date(d.timestamp||0).toLocaleDateString('pt-BR');
-            const extra=tipo==='parada_detectada'?` · parado ${fmtDur(d.duracaoSegundos||0)}`:(tipo==='retomada_movimento'?` · parado ${fmtDur(d.duracaoParadaSegundos||0)}`:'');
-
-            const el=document.createElement('div');
-            el.className=`hist-item ${tipoLabel}`;
-            el.innerHTML=`
-                <div class="hist-item-hora">${tipoEmoji} ${hora} <span style="color:#555;font-size:.85em">· ${data}</span><span class="hist-item-tipo ${tipoLabel}">${tipoLabel}</span></div>
-                <div class="hist-item-end">${endStr}</div>
-                <div class="hist-item-meta">🚗 ${d.velocidade||0} km/h · 🎯 ${d.acuracia||'?'}m${extra}</div>`;
-
-            // Clique → centraliza no mapa
-            if(d.lat && d.lon){
-                el.onclick=()=>{ map.flyTo([d.lat,d.lon],17); window.scrollTo({top:0,behavior:'smooth'}); };
-            }
-            resultado.appendChild(el);
         });
-
-        // Botão de rota apenas se tiver pontos com coordenadas
-        if(registros.some(r=>r.lat&&r.lon))
-            document.getElementById('histMapBtn').classList.add('visible');
-
-    } catch(e){
-        resultado.innerHTML=`<div class="hist-empty" style="color:#ff9999">Erro na busca: ${e.message}</div>`;
     }
-    btn.disabled=false; btn.textContent='🔍 BUSCAR REGISTROS';
-};
 
-// Mostra a rota dos registros buscados no mapa
-window.mostrarRotaHistorico=function(){
-    const pontos=historicoResultados.filter(r=>r.lat&&r.lon).map(r=>[r.lat,r.lon]);
-    if(!pontos.length) return;
-    if(linhaRota) map.removeLayer(linhaRota);
-    linhaRota=L.polyline(pontos,{color:'#00c8ff',weight:4,opacity:.85,dashArray:'8,4'}).addTo(map);
-    map.fitBounds(linhaRota.getBounds(),{padding:[20,20]});
-    window.scrollTo({top:0,behavior:'smooth'});
-};
+    if (navigator.onLine) {
+        statusText.textContent = 'Buscando endereco...';
+        buscarEndereco(dados.lat, dados.lon, function(end) {
+            if (end) {
+                dados.endereco         = end;
+                dados.enderecoCompleto = end.rua + ', ' + end.bairro + ' - ' + end.cidade + '/' + end.uf;
+            }
+            continuar(end);
+        });
+    } else {
+        continuar(null);
+    }
+}
 
-// ── Init ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════
+//  API PÚBLICA
+// ═══════════════════════════════════════════════════
+function atualizarLocalizacao() {
+    var btn = document.getElementById('btnAtualizar');
+    if (btn) btn.classList.add('loading');
+
+    if (!navigator.geolocation) {
+        mostrarErro('GPS', 'Geolocalização não disponível neste dispositivo.');
+        if (btn) btn.classList.remove('loading');
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        function(pos) {
+            if (btn) btn.classList.remove('loading');
+            enviarDados({
+                lat:       pos.coords.latitude,
+                lon:       pos.coords.longitude,
+                hora:      new Date().toLocaleTimeString(),
+                timestamp: Date.now(),
+                acuracia:  Number(pos.coords.accuracy).toFixed(1),
+                velocidade: pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0
+            });
+        },
+        function(err) {
+            if (btn) btn.classList.remove('loading');
+            mostrarErro('GPS', 'Erro ' + err.code + ': ' + err.message);
+        },
+        {enableHighAccuracy:true, maximumAge:10000, timeout:20000}
+    );
+}
+
+function centralizarMapa() {
+    if (historicoRota.length > 0) {
+        map.flyTo(historicoRota[historicoRota.length - 1], 17);
+    }
+}
+
+function limparRota() {
+    historicoRota = [];
+    if (linhaRota) map.removeLayer(linhaRota);
+    statusText.textContent = 'Rota limpa localmente.';
+}
+
+// ═══════════════════════════════════════════════════
+//  CACHE DE TILES
+// ═══════════════════════════════════════════════════
+function latLonToTile(lat, lon, z) {
+    var n = Math.pow(2, z);
+    return {
+        x: Math.floor((lon + 180) / 360 * n),
+        y: Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n)
+    };
+}
+
+function cachearAreaAtual() {
+    if (!map) return;
+    var btn = document.getElementById('btnCache');
+    btn.textContent = '...'; btn.disabled = true;
+
+    var center = map.getCenter();
+    var zoom   = map.getZoom();
+    var count  = 0;
+    var subs   = ['a', 'b', 'c'];
+
+    for (var z = Math.max(14, zoom - 2); z <= Math.min(19, zoom + 1); z++) {
+        var t = latLonToTile(center.lat, center.lng, z);
+        for (var dx = -2; dx <= 2; dx++) {
+            for (var dy = -2; dy <= 2; dy++) {
+                var tx  = t.x + dx;
+                var ty  = t.y + dy;
+                var sub = subs[Math.abs(tx + ty) % 3];
+                var url = 'https://' + sub + '.tile.openstreetmap.org/' + z + '/' + tx + '/' + ty + '.png';
+                // Pré-carrega via Image() — compatível com todos os browsers
+                (function(u) {
+                    var img = new Image();
+                    img.src = u;
+                })(url);
+                count++;
+            }
+        }
+    }
+
+    setTimeout(function() {
+        btn.textContent = 'OK';
+        setTimeout(function() { btn.textContent = '&#128190;'; btn.disabled = false; }, 2000);
+        document.getElementById('cacheInfo').textContent = count + ' tiles carregados p/ cache';
+        document.getElementById('cacheInfo').className   = 'cached';
+    }, 2000);
+}
+
+// ═══════════════════════════════════════════════════
+//  HISTÓRICO
+// ═══════════════════════════════════════════════════
+function toggleHistorico() {
+    var body = document.getElementById('histBody');
+    var icon = document.getElementById('histToggleIcon');
+    var isOpen = body.classList.contains('open');
+    if (isOpen) {
+        body.classList.remove('open');
+        icon.textContent = 'v';
+    } else {
+        body.classList.add('open');
+        icon.textContent = '^';
+        if (!document.getElementById('filtroDataInicio').value) {
+            var hoje = new Date().toISOString().slice(0, 10);
+            document.getElementById('filtroDataInicio').value = hoje;
+            document.getElementById('filtroDataFim').value    = hoje;
+        }
+    }
+}
+
+function buscarHistorico() {
+    var btn = document.getElementById('btnBuscarHistorico');
+    btn.disabled = true; btn.textContent = 'Buscando...';
+
+    var resultado = document.getElementById('histResultados');
+    var countEl   = document.getElementById('histCount');
+    resultado.innerHTML = '<div class="hist-empty">Buscando registros...</div>';
+    countEl.textContent = '';
+    document.getElementById('histMapBtn').classList.remove('visible');
+
+    var dataInicio = document.getElementById('filtroDataInicio').value;
+    var dataFim    = document.getElementById('filtroDataFim').value;
+    var horaInicio = document.getElementById('filtroHoraInicio').value || '00:00';
+    var horaFim    = document.getElementById('filtroHoraFim').value   || '23:59';
+    var filtroTipo = document.getElementById('filtroTipo').value;
+    var vID        = document.getElementById('veiculoID').value || 'VEICULO-01';
+
+    if (!dataInicio) {
+        resultado.innerHTML = '<div class="hist-empty">Selecione ao menos a data inicio</div>';
+        btn.disabled = false; btn.textContent = 'BUSCAR REGISTROS'; return;
+    }
+
+    var tsInicio = new Date(dataInicio + 'T' + horaInicio + ':00').getTime();
+    var tsFim    = new Date((dataFim || dataInicio) + 'T' + horaFim + ':59').getTime();
+
+    function renderizarResultados(registros) {
+        registros.sort(function(a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
+        historicoResultados = registros;
+
+        if (!registros.length) {
+            resultado.innerHTML = '<div class="hist-empty">Nenhum registro encontrado neste periodo</div>';
+            countEl.textContent = '';
+            btn.disabled = false; btn.textContent = 'BUSCAR REGISTROS';
+            return;
+        }
+
+        countEl.textContent = registros.length + ' registro' + (registros.length !== 1 ? 's' : '') + ' encontrado' + (registros.length !== 1 ? 's' : '');
+        resultado.innerHTML = '';
+
+        for (var i = 0; i < registros.length; i++) {
+            (function(d) {
+                var tipo = d.tipo || 'normal';
+                var tipoLabel = { parada_detectada:'parada', retomada_movimento:'retomada', normal:'normal' }[tipo] || 'normal';
+                var tipoEmoji = { parada_detectada:'P', retomada_movimento:'>', normal:'*' }[tipo] || '*';
+
+                var endStr = d.enderecoCompleto ||
+                    (d.endereco ? (d.endereco.rua + ', ' + d.endereco.bairro + ' - ' + d.endereco.cidade) :
+                    ((d.lat||0).toFixed(5) + ', ' + (d.lon||0).toFixed(5)));
+
+                var hora  = d.hora || new Date(d.timestamp || 0).toLocaleTimeString();
+                var data  = d.data || new Date(d.timestamp || 0).toLocaleDateString('pt-BR');
+                var extra = tipo === 'parada_detectada'
+                    ? ' · parado ' + fmtDur(d.duracaoSegundos || 0)
+                    : (tipo === 'retomada_movimento' ? ' · parado ' + fmtDur(d.duracaoParadaSegundos || 0) : '');
+
+                var el = document.createElement('div');
+                el.className = 'hist-item ' + tipoLabel;
+                el.innerHTML =
+                    '<div class="hist-item-hora">' + tipoEmoji + ' ' + hora +
+                    ' <span style="color:#555;font-size:.85em">· ' + data + '</span>' +
+                    '<span class="hist-item-tipo ' + tipoLabel + '">' + tipoLabel + '</span></div>' +
+                    '<div class="hist-item-end">' + endStr + '</div>' +
+                    '<div class="hist-item-meta">' + (d.velocidade||0) + ' km/h · ' + (d.acuracia||'?') + 'm' + extra + '</div>';
+
+                if (d.lat && d.lon) {
+                    el.onclick = function() {
+                        map.flyTo([d.lat, d.lon], 17);
+                        window.scrollTo({top:0, behavior:'smooth'});
+                    };
+                }
+                resultado.appendChild(el);
+            })(registros[i]);
+        }
+
+        if (registros.some(function(r) { return r.lat && r.lon; })) {
+            document.getElementById('histMapBtn').classList.add('visible');
+        }
+
+        btn.disabled = false; btn.textContent = 'BUSCAR REGISTROS';
+    }
+
+    if (navigator.onLine && db) {
+        // Firebase
+        db.ref('veiculos/' + vID + '/historico')
+            .orderByChild('timestamp')
+            .startAt(tsInicio)
+            .endAt(tsFim)
+            .once('value')
+            .then(function(snap) {
+                var registros = [];
+                snap.forEach(function(child) {
+                    var d = child.val();
+                    if (!filtroTipo || d.tipo === filtroTipo || (!d.tipo && filtroTipo === 'normal')) {
+                        registros.push(d);
+                    }
+                });
+                renderizarResultados(registros);
+            })
+            .catch(function(e) {
+                resultado.innerHTML = '<div class="hist-empty" style="color:#ff9999">Erro: ' + e.message + '</div>';
+                btn.disabled = false; btn.textContent = 'BUSCAR REGISTROS';
+            });
+    } else {
+        // Offline — IndexedDB
+        lerTodasChaves(function(err, chaves) {
+            if (err) {
+                resultado.innerHTML = '<div class="hist-empty" style="color:#ff9999">Erro no banco local</div>';
+                btn.disabled = false; btn.textContent = 'BUSCAR REGISTROS';
+                return;
+            }
+            abrirIDB(function(idbErr, idb) {
+                if (idbErr) {
+                    resultado.innerHTML = '<div class="hist-empty" style="color:#ff9999">Erro ao abrir banco</div>';
+                    btn.disabled = false; btn.textContent = 'BUSCAR REGISTROS';
+                    return;
+                }
+                var registros = [];
+                var idx = 0;
+                function proxima() {
+                    if (idx >= chaves.length) { renderizarResultados(registros); return; }
+                    lerItem(idb, chaves[idx++], function(err2, item) {
+                        if (item && item.dados) {
+                            var d = item.dados;
+                            if (d.timestamp >= tsInicio && d.timestamp <= tsFim) {
+                                if (!filtroTipo || d.tipo === filtroTipo || (!d.tipo && filtroTipo === 'normal')) {
+                                    registros.push(d);
+                                }
+                            }
+                        }
+                        proxima();
+                    });
+                }
+                proxima();
+            });
+        });
+    }
+}
+
+function mostrarRotaHistorico() {
+    var pontos = [];
+    for (var i = 0; i < historicoResultados.length; i++) {
+        var r = historicoResultados[i];
+        if (r.lat && r.lon) pontos.push([r.lat, r.lon]);
+    }
+    if (!pontos.length) return;
+    if (linhaRota) map.removeLayer(linhaRota);
+    linhaRota = L.polyline(pontos, {color:'#00c8ff', weight:4, opacity:.85, dashArray:'8,4'}).addTo(map);
+    map.fitBounds(linhaRota.getBounds(), {padding:[20,20]});
+    window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
 atualizarBadge();
-atualizarContadorCache();
-setInterval(window.atualizarLocalizacao, 8000);
-window.atualizarLocalizacao();
-setInterval(sincronizarFila, 30_000);
-setInterval(atualizarContadorCache, 60_000);
+setInterval(atualizarLocalizacao, 8000);
+atualizarLocalizacao();
+setInterval(sincronizarFila, 30000);
 </script>
 </body>
-</html>
+    </html>
